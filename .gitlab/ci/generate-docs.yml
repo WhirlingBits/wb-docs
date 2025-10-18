@@ -5,14 +5,16 @@ stages:
   - build
 
 variables:
+  GIT_STRATEGY: none
   DOC_REPO_DIR: wb-idf-core
+  # Erstelle in GitLab ein Access Token und hinterlege es als CI/CD Variable namens GITLAB_TOKEN
 
 fetch_repo:
   stage: fetch
   image: alpine:latest
   script:
     - apk add --no-cache git
-    - git clone https://gitlab.whirlingbits.de/whirlingbits/wb-idf-core.git $DOC_REPO_DIR
+    - git clone https://oauth2:${GITLAB_TOKEN}@gitlab.whirlingbits.de/whirlingbits/wb-idf-core.git $DOC_REPO_DIR
   artifacts:
     paths:
       - $DOC_REPO_DIR
