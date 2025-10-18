@@ -24,7 +24,7 @@ build_doxysaurus:
   script:
     - npm install -g @rnw-scripts/doxysaurus
     - cd $DOC_REPO_DIR
-    - npx doxysaurus build
+    - npx doxysaurus build --config ../../doxysaurus.config.js
     - cd ..
     - mkdir -p dist
     - cp -r $DOC_REPO_DIR/build/* dist/
