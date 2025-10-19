@@ -24,7 +24,7 @@ build_doxysaurus:
   script:
     - npm install -g @rnw-scripts/doxysaurus
     - echo "📄 Copy config from wb-docs to wb-idf-core"
-    - cp doxysaurus.config.js $DOC_REPO_DIR/
+    - cp doxysaurus.config.json $DOC_REPO_DIR/
     - cd $DOC_REPO_DIR
     - npx doxysaurus build --config ./doxysaurus.config.json
     - cd ..
