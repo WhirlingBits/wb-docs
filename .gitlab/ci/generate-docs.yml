@@ -22,6 +22,7 @@ fetch_repo:
 build_doxysaurus:
   stage: build
   script:
+    - apt-get update && apt-get install -y doxygen
     - npm install -g @rnw-scripts/doxysaurus
     - echo "📄 Copy config from wb-docs to wb-idf-core"
     - cp doxysaurus.config.json $DOC_REPO_DIR/
