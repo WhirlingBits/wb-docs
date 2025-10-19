@@ -26,7 +26,7 @@ build_doxysaurus:
     - echo "📄 Copy config from wb-docs to wb-idf-core"
     - cp doxysaurus.config.js $DOC_REPO_DIR/
     - cd $DOC_REPO_DIR
-    - npx doxysaurus build --config ./doxysaurus.config.js
+    - npx doxysaurus build --config ./doxysaurus.config.json
     - cd ..
     - mkdir -p dist
     - cp -r $DOC_REPO_DIR/build/* dist/
