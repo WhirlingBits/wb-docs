@@ -1,4 +1,4 @@
-image: node:20
+image: node:20-bullseye
 
 stages:
   - fetch
@@ -23,7 +23,7 @@ build_doxysaurus:
   stage: build
   script:
     - apt-get update && apt-get install -y doxygen
-    - npm install -g doxygen@0.1.2 @rnw-scripts/doxysaurus@0.6.2
+    - npm install -g @rnw-scripts/doxysaurus@latest
     - echo "📄 Copy config from wb-docs to wb-idf-core"
     - cp doxysaurus.config.json $DOC_REPO_DIR/
     - cd $DOC_REPO_DIR
