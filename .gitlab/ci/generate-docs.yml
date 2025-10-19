@@ -9,11 +9,11 @@ variables:
 
 fetch_repo:
   stage: fetch
-  image: alpine:latest
+  image: node:20-bullseye
   variables:
     GIT_STRATEGY: none
   script:
-    - apk add --no-cache git
+    - apt-get update && apt-get install -y git
     - git clone https://matti122:${GITHUB_TOKEN}@github.com/WhirlingBits/wb-idf-core.git $DOC_REPO_DIR
   artifacts:
     paths:
@@ -27,6 +27,9 @@ build_doxysaurus:
     - echo "📄 Copy config from wb-docs to wb-idf-core"
     - cp doxysaurus.config.json $DOC_REPO_DIR/
     - cd $DOC_REPO_DIR
+    - doxygen -g Doxyfile
+    - doxygen Doxyfile
+    - echo "📚 Build Doxysaurus documentation"
     - npx doxysaurus build --config ./doxysaurus.config.json
     - cd ..
     - mkdir -p dist
