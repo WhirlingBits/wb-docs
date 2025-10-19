@@ -5,15 +5,15 @@ stages:
   - build
 
 variables:
-  GIT_STRATEGY: none
   DOC_REPO_DIR: wb-idf-core
 
 fetch_repo:
   stage: fetch
   image: alpine:latest
+  variables:
+    GIT_STRATEGY: none
   script:
     - apk add --no-cache git
-    # Klone mit GitHub Token aus CI/CD Variable
     - git clone https://matti122:${GITHUB_TOKEN}@github.com/WhirlingBits/wb-idf-core.git $DOC_REPO_DIR
   artifacts:
     paths:
@@ -23,6 +23,7 @@ build_doxysaurus:
   stage: build
   script:
     - npm install -g @rnw-scripts/doxysaurus
+    - echo "📄 Copy config from wb-docs to wb-idf-core"
     - cp doxysaurus.config.js $DOC_REPO_DIR/
     - cd $DOC_REPO_DIR
     - npx doxysaurus build --config ./doxysaurus.config.js
