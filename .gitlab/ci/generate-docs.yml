@@ -23,8 +23,9 @@ build_doxysaurus:
   stage: build
   script:
     - npm install -g @rnw-scripts/doxysaurus
+    - cp doxysaurus.config.js $DOC_REPO_DIR/
     - cd $DOC_REPO_DIR
-    - npx doxysaurus build --config ../../doxysaurus.config.js
+    - npx doxysaurus build --config ./doxysaurus.config.js
     - cd ..
     - mkdir -p dist
     - cp -r $DOC_REPO_DIR/build/* dist/
