@@ -15,15 +15,18 @@
   "devDependencies": {
     "@xpack/doxygen2docusaurus": "^2.0.0"
   },
-  "doxygen2docusaurus": {
-    "input": "docs/out/xml",
-    "output": "docs/mdx",
-    "options": {
-      "cleanOutput": true,
-      "collapseMembers": true,
-      "linkToSource": true,
-      "frontMatter": {
-        "sidebar_position": 1
+  "config": {
+    "doxygen2docusaurus": {
+      "baseUrl": "/micro-test-plus-xpack/",
+      "input": "docs/out/xml",
+      "output": "docs/mdx",
+      "options": {
+        "cleanOutput": true,
+        "collapseMembers": true,
+        "linkToSource": true,
+        "frontMatter": {
+          "sidebar_position": 1
+        }
       }
     }
   }
