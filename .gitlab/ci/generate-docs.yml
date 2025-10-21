@@ -33,6 +33,7 @@ build_doxygen2docusaurus:
     - mkdir -p docs/out
     # Doxygen ausführen, um XML-Dateien zu erzeugen
     - doxygen Doxyfile
+    - ls -R docs/out/xml
     # xPack Doxygen2Docusaurus konvertiert XML zu MDX-Dateien
     - doxygen2docusaurus
     # Artefakte sammeln
