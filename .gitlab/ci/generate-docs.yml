@@ -27,7 +27,7 @@ build_doxygen2docusaurus:
     # System-Doxygen und Graphviz installieren
     - apt-get update && apt-get install -y doxygen graphviz
     # xPack Doxygen2Docusaurus installieren
-    - npm install -g @xpack/doxygen2docusaurus@2.0.0
+    - npm install -g @xpack/doxygen2docusaurus@latest --save-dev
     # In Repo wechseln
     - cd $DOC_REPO_DIR
     - mkdir -p docs/out
