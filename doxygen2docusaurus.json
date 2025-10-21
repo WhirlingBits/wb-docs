@@ -1,0 +1,33 @@
+{
+  "$schema": "https://raw.githubusercontent.com/xpack-dev-tools/doxygen2docusaurus/main/schema/doxygen2docusaurus-schema.json",
+  "input": "docs/out/xml",
+  "output": "docs/mdx",
+  "index": {
+    "title": "API Reference",
+    "description": "Automatically generated API documentation from Doxygen XML output."
+  },
+  "clean": true,
+  "frontMatter": {
+    "sidebar_position": 1
+  },
+  "filters": {
+    "skipEmpty": true,
+    "stripPrefix": [
+      "wb_",
+      "esp_"
+    ]
+  },
+  "format": {
+    "language": "c",
+    "collapseMembers": true,
+    "showLocation": false,
+    "code": {
+      "showDefinition": true,
+      "showParams": true
+    }
+  },
+  "links": {
+    "source": true,
+    "backToIndex": true
+  }
+}
