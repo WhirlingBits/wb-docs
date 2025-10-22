@@ -30,10 +30,10 @@ build_doxygen2docusaurus:
     - npm install -g @xpack/doxygen2docusaurus@latest --save-dev
     # In Repo wechseln
     - cd $DOC_REPO_DIR
-    - mkdir -p docs/out docs/mdx
+    - mkdir -p doxygen/xml docs/mdx
     # Doxygen ausführen, um XML-Dateien zu erzeugen
     - doxygen Doxyfile
-    - ls -R docs/out/xml
+    - ls -R doxygen/xml
     # xPack Doxygen2Docusaurus konvertiert XML zu MDX-Dateien
     - npm run convert-doxygen
     - ls -R docs/mdx
