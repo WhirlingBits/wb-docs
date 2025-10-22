@@ -3,17 +3,21 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "build": "docusaurus build",
+    "clean": "del-cli docs/out docs/mdx || true",
+    "doxygen": "mkdir -p docs/out && doxygen Doxyfile",
+    "convert-doxygen": "doxygen2docusaurus",
+    "generate-docs": "npm run clean && npm run doxygen && npm run convert-doxygen",
+    "build": "npm run generate-docs && docusaurus build",
     "start": "docusaurus start",
-    "serve": "docusaurus serve",
-    "generate-docs": "doxygen Doxyfile && doxygen2docusaurus"
+    "serve": "docusaurus serve"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",
     "@docusaurus/preset-classic": "^3.9.2"
   },
   "devDependencies": {
-    "@xpack/doxygen2docusaurus": "^2.0.0"
+    "@xpack/doxygen2docusaurus": "^2.0.0",
+    "del-cli": "^5.1.0"
   },
   "config": {
     "doxygen2docusaurus": {
