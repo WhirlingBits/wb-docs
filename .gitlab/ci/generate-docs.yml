@@ -7,6 +7,7 @@ stages:
 variables:
   DOC_REPO_DIR: wb-idf-core
 
+# 1️⃣ Repo mit Quellcode klonen
 fetch_repo:
   stage: fetch
   image: node:20-bullseye
@@ -17,26 +18,36 @@ fetch_repo:
     - git clone https://matti122:${GITHUB_TOKEN}@github.com/WhirlingBits/wb-idf-core.git $DOC_REPO_DIR
   artifacts:
     paths:
-      - $DOC_REPO_DIR
+      - $DOC_REPO_DIR/doxygen/xml
 
+# 2️⃣ Doxygen ausführen und MDX generieren
 build_doxygen2docusaurus:
   stage: build
   dependencies:
     - fetch_repo
   script:
-    # System-Doxygen und Graphviz installieren
+    # 🧩 Dependencies installieren
     - apt-get update && apt-get install -y doxygen graphviz
-    # xPack Doxygen2Docusaurus installieren
     - npm install -g @xpack/doxygen2docusaurus@latest --save-dev
-    # In Repo wechseln
+
+    # 🧱 In das geklonte Repo wechseln und Doxygen ausführen
     - cd $DOC_REPO_DIR
-    - mkdir -p doxygen/xml doxygen/mdx
-    # Doxygen ausführen, um XML-Dateien zu erzeugen
+    - mkdir -p doxygen/xml
     - doxygen Doxyfile
+
+    # ✅ Ergebnis prüfen
     - ls -R doxygen/xml
-    # xPack Doxygen2Docusaurus konvertiert XML zu MDX-Dateien
-    - npm run convert-doxygen
-    - ls -R doxygen/mdx
-    # Artefakte sammeln
-    - mkdir -p ../../dist
-    - cp -r doxygen/mdx/* ../../dist/
+
+    # 🔁 Zurück ins Dokumentations-Repo (wb-docs)
+    - cd ../
+    - ls -R
+
+    # 🧩 XML → MDX konvertieren (mit absoluten Pfaden)
+    - npx doxygen2docusaurus --input wb-idf-core/doxygen/xml --output docs/mdx
+
+    # ✅ Ergebnis prüfen
+    - ls -R docs/mdx
+
+  artifacts:
+    paths:
+      - docs/mdx
