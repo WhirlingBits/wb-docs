@@ -33,7 +33,10 @@ build_doxygen2docusaurus:
     # 🧱 In das geklonte Repo wechseln und Doxygen ausführen
     - cd $DOC_REPO_DIR
     - mkdir -p doxygen/xml
-    - doxygen Doxyfile
+    - echo "PROJECT_NAME = wb-idf-core" > doxygen/Doxyfile
+    - echo "OUTPUT_DIRECTORY = $(pwd)/doxygen/xml" >> doxygen/Doxyfile
+    - echo "HTML_OUTPUT = html" >> doxygen/Doxyfile
+    - doxygen doxygen/Doxyfile
 
     # ✅ XML-Ergebnis prüfen
     - ls -R doxygen/xml
@@ -43,7 +46,7 @@ build_doxygen2docusaurus:
     - ls -R
 
     # 🧩 XML → MDX konvertieren (mit absoluten Pfaden)
-    - npx doxygen2docusaurus --input $DOC_REPO_DIR/doxygen/xml --output docs/mdx
+    - npm run convert-doxygen
 
     # ✅ Ergebnis prüfen
     - ls -R docs/mdx
