@@ -18,9 +18,9 @@ fetch_repo:
     - git clone https://matti122:${GITHUB_TOKEN}@github.com/WhirlingBits/wb-idf-core.git $DOC_REPO_DIR
   artifacts:
     paths:
-      - $DOC_REPO_DIR/doxygen/xml
+      - $DOC_REPO_DIR   # 👈 GANZES REPO speichern, nicht nur XML
 
-# 2️⃣ Doxygen ausführen und MDX generieren
+# 2️⃣ Doxygen ausführen und in MDX konvertieren
 build_doxygen2docusaurus:
   stage: build
   dependencies:
@@ -35,7 +35,7 @@ build_doxygen2docusaurus:
     - mkdir -p doxygen/xml
     - doxygen Doxyfile
 
-    # ✅ Ergebnis prüfen
+    # ✅ XML-Ergebnis prüfen
     - ls -R doxygen/xml
 
     # 🔁 Zurück ins Dokumentations-Repo (wb-docs)
@@ -43,7 +43,7 @@ build_doxygen2docusaurus:
     - ls -R
 
     # 🧩 XML → MDX konvertieren (mit absoluten Pfaden)
-    - npx doxygen2docusaurus --input wb-idf-core/doxygen/xml --output docs/mdx
+    - npx doxygen2docusaurus --input $DOC_REPO_DIR/doxygen/xml --output docs/mdx
 
     # ✅ Ergebnis prüfen
     - ls -R docs/mdx
