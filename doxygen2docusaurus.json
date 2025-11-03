@@ -1,9 +1,0 @@
-{
-    "doxygenXmlInputFolderPath": "../wb-idf-core/doxygen/xml",
-    "baseUrl": "/web-llvm/",
-    "renderPagesAtTop": false,
-    "renderProgramListing": false,
-    "renderProgramListingInline": false,
-    "verbose": false,
-    "debug": false
-}
