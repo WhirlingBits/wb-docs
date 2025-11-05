@@ -1,0 +1,25 @@
+{
+  "repositories": [
+    {
+      "id": "wb-idf-core",
+      "label": "wb-idf-core",
+      "description": "Core functionality and base components",
+      "editUrl": "https://github.com/WhirlingBits/wb-idf-core/tree/main/",
+      "githubUrl": "https://github.com/WhirlingBits/wb-idf-core",
+      "enabled": true
+    }
+  ],
+  "settings": {
+    "versioning": {
+      "enabled": true,
+      "showUnreleased": true,
+      "currentLabel": "Next",
+      "currentPath": "next"
+    },
+    "branding": {
+      "title": "WhirlingBits Documentation",
+      "tagline": "ESP-IDF Component Documentation",
+      "organizationName": "WhirlingBits"
+    }
+  }
+}
