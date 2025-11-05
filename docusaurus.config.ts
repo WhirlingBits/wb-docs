@@ -1,35 +1,287 @@
 import {themes as prismThemes} from 'prism-react-renderer';
 import type {Config} from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
+import * as fs from 'fs';
+import * as path from 'path';
 
-// This runs in Node.js - Don't use client-side code here (browser APIs, JSX...)
+// 🔥 Interface für Repository-Config
+interface RepoConfig {
+  id: string;
+  label: string;
+  description: string;
+  editUrl: string;
+  githubUrl: string;
+  enabled: boolean;
+}
+
+interface ConfigData {
+  repositories: RepoConfig[];
+  settings: {
+    versioning: {
+      enabled: boolean;
+      showUnreleased: boolean;
+      currentLabel: string;
+      currentPath: string;
+    };
+    branding: {
+      title: string;
+      tagline: string;
+      organizationName: string;
+    };
+  };
+}
+
+// 🔥 Lade Config aus JSON
+function loadRepositoriesConfig(): ConfigData {
+  const configPath = path.join(__dirname, 'docusaurus-config.json');
+  
+  try {
+    const configContent = fs.readFileSync(configPath, 'utf-8');
+    const config: ConfigData = JSON.parse(configContent);
+    
+    // Nur aktivierte Repositories
+    config.repositories = config.repositories.filter(r => r.enabled);
+    
+    console.log(`📦 Geladene Repositories: ${config.repositories.map(r => r.id).join(', ')}`);
+    
+    return config;
+  } catch (error) {
+    console.error('❌ Error loading docusaurus-config.json:', error);
+    
+    // Fallback to empty config
+    return {
+      repositories: [],
+      settings: {
+        versioning: {
+          enabled: true,
+          showUnreleased: true,
+          currentLabel: 'Next',
+          currentPath: 'next',
+        },
+        branding: {
+          title: 'WhirlingBits Documentation',
+          tagline: 'ESP-IDF Component Documentation',
+          organizationName: 'WhirlingBits',
+        },
+      },
+    };
+  }
+}
+
+// ✅ FIXED: Multi-Instance Structure - Check <repo>/ (not docs-<repo>/)
+function docsDirectoryExists(repoId: string): boolean {
+  const docsPath = path.join(__dirname, repoId);
+  
+  if (!fs.existsSync(docsPath)) {
+    return false;
+  }
+  
+  // ✅ Check for Markdown files directly in root (flat structure)
+  const files = fs.readdirSync(docsPath);
+  const hasMarkdownFiles = files.some(file => 
+    file.endsWith('.md') || file.endsWith('.mdx')
+  );
+  
+  // ✅ Multi-Instance: Check for <repo>_versioned_docs/
+  const hasVersionedDocs = fs.existsSync(path.join(__dirname, `${repoId}_versioned_docs`));
+  
+  return hasMarkdownFiles || hasVersionedDocs;
+}
+
+// ✅ FIXED: Multi-Instance - Load from <repo>_versions.json
+function loadVersionsForRepo(repoId: string): string[] {
+  const versionsPath = path.join(__dirname, `${repoId}_versions.json`);
+  
+  try {
+    if (fs.existsSync(versionsPath)) {
+      const versionsContent = fs.readFileSync(versionsPath, 'utf-8');
+      const versions = JSON.parse(versionsContent);
+      
+      console.log(`   📋 Versionen für ${repoId}: ${versions.join(', ')}`);
+      
+      return versions;
+    }
+  } catch (error) {
+    console.warn(`⚠️  Fehler beim Laden von ${repoId}_versions.json:`, error);
+  }
+
+  // Fallback: No versions
+  return [];
+}
+
+// ✅ FIXED: Multi-Instance Structure
+function generateVersionConfig(repoId: string, settings: ConfigData['settings']) {
+  const versions = loadVersionsForRepo(repoId);
+  const docsPath = path.join(__dirname, repoId);
+
+  // ✅ Check for Markdown files directly in root (current)
+  let hasCurrentDocs = false;
+  if (fs.existsSync(docsPath)) {
+    const files = fs.readdirSync(docsPath);
+    hasCurrentDocs = files.some(file => 
+      file.endsWith('.md') || file.endsWith('.mdx')
+    );
+  }
+
+  // ✅ Multi-Instance: Check for <repo>_versioned_docs/
+  const versionedDocsPath = path.join(__dirname, `${repoId}_versioned_docs`);
+  const hasVersionedDocs = fs.existsSync(versionedDocsPath);
+
+  // ✅ Validate that versions REALLY exist
+  let validVersions: string[] = [];
+  if (hasVersionedDocs && versions.length > 0) {
+    validVersions = versions.filter(version => {
+      const versionPath = path.join(versionedDocsPath, `version-${version}`);
+      const exists = fs.existsSync(versionPath);
+
+      // Check if Markdown files exist
+      if (exists) {
+        const files = fs.readdirSync(versionPath);
+        const hasMd = files.some(f => f.endsWith('.md') || f.endsWith('.mdx'));
+        if (!hasMd) {
+          console.warn(`   ⚠️  Version ${version}: ${repoId}_versioned_docs/version-${version}/ existiert aber keine MD-Dateien!`);
+          return false;
+        }
+      }
+      
+      if (!exists) {
+        console.warn(`   ⚠️  Version ${version} in ${repoId}_versions.json aber ${repoId}_versioned_docs/version-${version}/ fehlt!`);
+      }
+      return exists;
+    });
+  }
+  
+  console.log(`   📋 Debug ${repoId}:`);
+  console.log(`      - ${repoId}_versions.json: ${versions.length > 0 ? versions.join(', ') : 'none'}`);
+  console.log(`      - ${repoId}_versioned_docs/ exists: ${hasVersionedDocs}`);
+  console.log(`      - valid ${repoId}_versioned_docs/: ${validVersions.length > 0 ? validVersions.join(', ') : 'none'}`);
+  console.log(`      - current docs (${repoId}/*.md): ${hasCurrentDocs}`);
+
+  // ✅ Case 1 - No docs at all
+  if (validVersions.length === 0 && !hasCurrentDocs) {
+    console.warn(`⚠️  No documentation found for ${repoId}`);
+    return null;
+  }
+
+  // ✅ Case 2 - ONLY current (no versioning)
+  if (validVersions.length === 0 && hasCurrentDocs) {
+    console.log(`   ℹ️  ${repoId}: Only current (no versioning)`);
+    return {
+      disableVersioning: true,
+      includeCurrentVersion: true,
+    };
+  }
+
+  // ✅ Case 3 - ONLY versions (no current)
+  if (validVersions.length > 0 && !hasCurrentDocs) {
+    const lastVersion = validVersions[0];
+
+    console.log(`   ✅ ${repoId}: Only versioning without current (lastVersion: ${lastVersion})`);
+
+    return {
+      lastVersion: lastVersion,
+      includeCurrentVersion: false,
+      disableVersioning: false,
+    };
+  }
+
+  // ✅ Case 4 - BOTH (current + versions)
+  console.log(`   ✅ ${repoId}: Current + ${validVersions.length} versions`);
+
+  return {
+    lastVersion: 'current',
+    includeCurrentVersion: true,
+    disableVersioning: false,
+  };
+}
+
+// 🔥 Load configuration
+const repoConfig = loadRepositoriesConfig();
+const settings = repoConfig.settings;
+
+// 🔥 Filter only repositories with existing docs
+const repositories = repoConfig.repositories.filter(repo => {
+  const exists = docsDirectoryExists(repo.id);
+  
+  if (!exists) {
+    console.warn(`⚠️  Skipping ${repo.id}: Directory ${repo.id}/ not found`);
+    console.warn(`   Run './generate-docs.sh' to generate documentation`);
+  } else {
+    console.log(`✅ ${repo.id}: Documentation found`);
+  }
+  
+  return exists;
+});
+
+console.log(`\n📚 Active repositories: ${repositories.length} of ${repoConfig.repositories.length}`);
+
+// ✅ FIXED: Multi-Instance Structure
+const docsPlugins = repositories
+  .map(repo => {
+    const versionConfig = generateVersionConfig(repo.id, settings);
+
+    // ✅ Skip if no valid config
+    if (!versionConfig) {
+      console.warn(`⚠️  Skipping plugin for ${repo.id}: No valid configuration`);
+      return null;
+    }
+
+    console.log(`\n🔧 Plugin config for ${repo.id}:`);
+    console.log(`   Label: ${repo.label}`);
+    console.log(`   Path: ${repo.id}`);
+    console.log(`   Versioning: ${versionConfig.disableVersioning ? 'disabled' : 'enabled'}`);
+    if (!versionConfig.disableVersioning) {
+      console.log(`   Last Version: ${versionConfig.lastVersion}`);
+      console.log(`   Include Current: ${versionConfig.includeCurrentVersion}`);
+    }
+    
+    const basePath = repo.id;
+    
+    // ✅ Sidebar-Pfad (Multi-Instance: <repo>/sidebars.json)
+    const sidebarPath = fs.existsSync(path.join(__dirname, basePath, 'sidebars.json'))
+      ? `./${basePath}/sidebars.json`
+      : undefined;
+    
+    return [
+      '@docusaurus/plugin-content-docs',
+      {
+        id: repo.id,
+        path: basePath,
+        routeBasePath: repo.id,
+        ...(sidebarPath && { sidebarPath }),
+        editUrl: repo.editUrl,
+
+        // ✅ Spread ONLY the necessary options
+        lastVersion: versionConfig.lastVersion,
+        includeCurrentVersion: versionConfig.includeCurrentVersion,
+        disableVersioning: versionConfig.disableVersioning,
+        
+        remarkPlugins: [],
+        rehypePlugins: [],
+      },
+    ];
+  })
+  .filter((plugin): plugin is NonNullable<typeof plugin> => plugin !== null);
 
 const config: Config = {
-  title: 'My Site',
-  tagline: 'Dinosaurs are cool',
+  title: settings.branding.title,
+  tagline: settings.branding.tagline,
   favicon: 'img/favicon.ico',
 
-  // Future flags, see https://docusaurus.io/docs/api/docusaurus-config#future
   future: {
-    v4: true, // Improve compatibility with the upcoming Docusaurus v4
+    v4: true,
   },
 
-  // Set the production url of your site here
-  url: 'https://your-docusaurus-site.example.com',
-  // Set the /<baseUrl>/ pathname under which your site is served
-  // For GitHub pages deployment, it is often '/<projectName>/'
-  baseUrl: '/',
+  // GitHub Pages deployment
+  url: 'https://whirlingbits.github.io',
+  baseUrl: '/wb-docs/',
 
-  // GitHub pages deployment config.
-  // If you aren't using GitHub pages, you don't need these.
-  organizationName: 'facebook', // Usually your GitHub org/user name.
-  projectName: 'docusaurus', // Usually your repo name.
+  organizationName: settings.branding.organizationName,
+  projectName: 'wb-docs',
 
-  onBrokenLinks: 'throw',
+  onBrokenLinks: 'warn',
+  onBrokenAnchors: 'warn',
 
-  // Even if you don't use internationalization, you can use this field to set
-  // useful metadata like html lang. For example, if your site is Chinese, you
-  // may want to replace "en" with "zh-Hans".
   i18n: {
     defaultLocale: 'en',
     locales: ['en'],
@@ -39,28 +291,11 @@ const config: Config = {
     [
       'classic',
       {
-        docs: {
-          sidebarPath: './sidebars.ts',
-          // Please change this to your repo.
-          // Remove this to remove the "edit this page" links.
-          editUrl:
-            'https://github.com/facebook/docusaurus/tree/main/packages/create-docusaurus/templates/shared/',
-        },
-        blog: {
-          showReadingTime: true,
-          feedOptions: {
-            type: ['rss', 'atom'],
-            xslt: true,
-          },
-          // Please change this to your repo.
-          // Remove this to remove the "edit this page" links.
-          editUrl:
-            'https://github.com/facebook/docusaurus/tree/main/packages/create-docusaurus/templates/shared/',
-          // Useful options to enforce blogging best practices
-          onInlineTags: 'warn',
-          onInlineAuthors: 'warn',
-          onUntruncatedBlogPosts: 'warn',
-        },
+        // ✅ REMOVED: docs plugin (nur Repository-Plugins)
+        docs: false,
+        
+        blog: false,
+        
         theme: {
           customCss: './src/css/custom.css',
         },
@@ -68,83 +303,170 @@ const config: Config = {
     ],
   ],
 
+  // 🔥 Dynamisch generierte Plugins
+  plugins: docsPlugins,
+
+  // Markdown-Konfiguration
+  markdown: {
+    mermaid: true,
+    format: 'detect',
+  },
+
   themeConfig: {
-    // Replace with your project's social card
-    image: 'img/docusaurus-social-card.jpg',
+    image: 'img/wb-social-card.jpg',
+    
     colorMode: {
+      defaultMode: 'light',
+      disableSwitch: false,
       respectPrefersColorScheme: true,
     },
+    
     navbar: {
-      title: 'My Site',
+      title: settings.branding.organizationName,
       logo: {
-        alt: 'My Site Logo',
+        alt: `${settings.branding.organizationName} Logo`,
         src: 'img/logo.svg',
       },
       items: [
+        // ✅ REMOVED: Haupt-Docs Link (da kein docs plugin mehr)
+        
+        // 🔥 Repository-Links
+        ...repositories.map(repo => ({
+          type: 'doc' as const,
+          docId: 'index',
+          docsPluginId: repo.id,
+          position: 'left' as const,
+          label: repo.label,
+        })),
+        
+        // ✅ Version-Dropdowns NUR für Repositories
+        ...repositories
+          .map(repo => {
+            const versions = loadVersionsForRepo(repo.id);
+            const docsPath = path.join(__dirname, repo.id);
+            
+            // Prüfe auf current
+            let hasCurrentDocs = false;
+            if (fs.existsSync(docsPath)) {
+              const files = fs.readdirSync(docsPath);
+              hasCurrentDocs = files.some(file => 
+                file.endsWith('.md') || file.endsWith('.mdx')
+              );
+            }
+            
+            // ✅ Multi-Instance: Prüfe <repo>_versioned_docs/
+            const versionedDocsPath = path.join(__dirname, `${repo.id}_versioned_docs`);
+            let validVersions: string[] = [];
+            if (fs.existsSync(versionedDocsPath) && versions.length > 0) {
+              validVersions = versions.filter(version => {
+                const versionPath = path.join(versionedDocsPath, `version-${version}`);
+                return fs.existsSync(versionPath);
+              });
+            }
+            
+            // Zähle verfügbare Versionen
+            const totalVersions = hasCurrentDocs ? validVersions.length + 1 : validVersions.length;
+            
+            // ✅ Zeige Dropdown nur wenn mehr als 1 Version verfügbar
+            if (totalVersions <= 1) {
+              console.log(`   ⏭️  Kein Version-Dropdown für ${repo.id} (nur ${totalVersions} Version)`);
+              return null;
+            }
+            
+            console.log(`   ✅ Version-Dropdown für ${repo.id} (${totalVersions} Versionen)`);
+            
+            return {
+              type: 'docsVersionDropdown' as const,
+              position: 'right' as const,
+              docsPluginId: repo.id,
+              dropdownActiveClassDisabled: false,
+              dropdownItemsAfter: [
+                {
+                  to: `/${repo.id}/versions`,
+                  label: 'All versions',
+                },
+              ],
+            };
+          })
+          .filter((item): item is NonNullable<typeof item> => item !== null),
+        
+        // 🔥 GitHub-Link
         {
-          type: 'docSidebar',
-          sidebarId: 'tutorialSidebar',
-          position: 'left',
-          label: 'Tutorial',
-        },
-        {to: '/blog', label: 'Blog', position: 'left'},
-        {
-          href: 'https://github.com/facebook/docusaurus',
+          href: `https://github.com/${settings.branding.organizationName}`,
           label: 'GitHub',
           position: 'right',
         },
       ],
     },
+    
     footer: {
       style: 'dark',
       links: [
         {
-          title: 'Docs',
+          title: 'Documentation',
           items: [
-            {
-              label: 'Tutorial',
-              to: '/docs/intro',
-            },
+            // ✅ REMOVED: Getting Started Link (da kein docs/)
+            ...repositories.map(repo => ({
+              label: `${repo.label} API`,
+              to: `/${repo.id}`,
+            })),
           ],
         },
         {
-          title: 'Community',
-          items: [
-            {
-              label: 'Stack Overflow',
-              href: 'https://stackoverflow.com/questions/tagged/docusaurus',
-            },
-            {
-              label: 'Discord',
-              href: 'https://discordapp.com/invite/docusaurus',
-            },
-            {
-              label: 'X',
-              href: 'https://x.com/docusaurus',
-            },
-          ],
+          title: 'Repositories',
+          items: repositories.map(repo => ({
+            label: repo.label,
+            href: repo.githubUrl,
+          })),
         },
         {
           title: 'More',
           items: [
             {
-              label: 'Blog',
-              to: '/blog',
+              label: 'GitHub Organization',
+              href: `https://github.com/${settings.branding.organizationName}`,
             },
-            {
-              label: 'GitHub',
-              href: 'https://github.com/facebook/docusaurus',
-            },
+            ...repositories
+              .filter(repo => {
+                const versions = loadVersionsForRepo(repo.id);
+                const versionedDocsPath = path.join(__dirname, `${repo.id}_versioned_docs`);
+                
+                if (!fs.existsSync(versionedDocsPath) || versions.length === 0) {
+                  return false;
+                }
+                
+                // Prüfe ob mindestens eine Version existiert
+                return versions.some(version => {
+                  const versionPath = path.join(versionedDocsPath, `version-${version}`);
+                  return fs.existsSync(versionPath);
+                });
+              })
+              .map(repo => ({
+                label: `${repo.label} Versions`,
+                to: `/${repo.id}/versions`,
+              })),
           ],
         },
       ],
-      copyright: `Copyright © ${new Date().getFullYear()} My Project, Inc. Built with Docusaurus.`,
+      copyright: `Copyright © ${new Date().getFullYear()} ${settings.branding.organizationName}. Built with Docusaurus.`,
     },
+    
     prism: {
       theme: prismThemes.github,
       darkTheme: prismThemes.dracula,
+      additionalLanguages: ['c', 'cpp', 'bash', 'json', 'yaml'],
     },
+    
+    docs: {
+      sidebar: {
+        hideable: true,
+        autoCollapseCategories: true,
+      },
+    },
+    
   } satisfies Preset.ThemeConfig,
+  
+  staticDirectories: ['static'],
 };
 
 export default config;
