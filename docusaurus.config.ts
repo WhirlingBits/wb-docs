@@ -33,7 +33,7 @@ interface ConfigData {
 
 // 🔥 Lade Config aus JSON
 function loadRepositoriesConfig(): ConfigData {
-  const configPath = path.join(__dirname, 'docusaurus-config.json');
+  const configPath = path.join(__dirname, 'repositories.json');
   
   try {
     const configContent = fs.readFileSync(configPath, 'utf-8');
@@ -46,7 +46,7 @@ function loadRepositoriesConfig(): ConfigData {
     
     return config;
   } catch (error) {
-    console.error('❌ Error loading docusaurus-config.json:', error);
+    console.error('❌ Error loading repositories.json:', error);
     
     // Fallback to empty config
     return {
@@ -322,6 +322,35 @@ const config: Config = {
       defaultMode: 'light',
       disableSwitch: false,
       respectPrefersColorScheme: true,
+    },
+    
+    // ✅ Algolia Search Integration
+    algolia: {
+      // The application ID provided by Algolia
+      appId: '4GR9PMMKXX',
+
+      // Public API key: it is safe to commit it
+      apiKey: '638385848c29478b55def3a3a03818f2',
+
+      indexName: 'whirlingbits',
+
+      // Optional: see doc section below
+      contextualSearch: true,
+
+      // Optional: Specify domains where the navigation should occur through window.location instead on history.push. Useful when our Algolia config crawls multiple documentation sites and we want to navigate with window.location.href to them.
+      externalUrlRegex: 'docs\\.whirlingbits\\.de',
+
+      // Optional: Replace parts of the item URLs from Algolia. Useful when using the same search index for multiple deployments using a different baseUrl. You can use regexp or string in the `from` param. For example: localhost:3000 vs myCompany.com/docs
+      replaceSearchResultPathname: {
+        from: '/docs/', // or as RegExp: /\/docs\//
+        to: '/',
+      },
+
+      // Optional: Algolia search parameters
+      searchParameters: {},
+
+      // Optional: path for search page that enabled by default (`false` to disable it)
+      searchPagePath: 'search',
     },
     
     navbar: {
