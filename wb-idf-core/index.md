@@ -26,7 +26,7 @@ Advanced I2C functionality with:
 - Bit-level register manipulation
 - 16-bit word operations
 
-[View I2C API Documentation](wb_idf_i2c)
+[View I2C API Documentation](./wb_idf_i2c)
 
 ### Additional Components
 
@@ -71,10 +71,25 @@ wb_i2c_master_byte_write(dev_handle, 0x00, data, sizeof(data));
 
 Browse the complete API documentation by module:
 
-- [I2C Master Driver](wb_idf_i2c)
+- [I2C Master Driver](./wb_idf_i2c)
 
 ## Requirements
+- **ESP-IDF Version:** 5.0 or higher
+- **Supported Chips:** ESP32, ESP32-S2, ESP32-S3, ESP32-C3, ESP32-C6
+- **License:** Apache License 2.0
 
+## Support
+
+For questions, bug reports, or feature requests:
+
+- Open an issue on [GitHub](https://github.com/WhirlingBits/wb-idf-core/issues)
+- Contact: [contact@whirlingbits.de](mailto:contact@whirlingbits.de)
+
+## License
+
+Copyright (c) 2024 WhirlingBits
+
+Licensed under the Apache License, Version 2.0. See LICENSE file in the project root for details.
 - **ESP-IDF Version:** 5.0 or higher
 - **Supported Chips:** ESP32, ESP32-S2, ESP32-S3, ESP32-C3, ESP32-C6
 - **License:** Apache License 2.0
