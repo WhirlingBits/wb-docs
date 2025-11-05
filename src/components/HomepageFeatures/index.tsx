@@ -11,32 +11,32 @@ type FeatureItem = {
 
 const FeatureList: FeatureItem[] = [
   {
-    title: 'Easy to Use',
+    title: 'ESP-IDF Components',
     Svg: require('@site/static/img/undraw_docusaurus_mountain.svg').default,
     description: (
       <>
-        Docusaurus was designed from the ground up to be easily installed and
-        used to get your website up and running quickly.
+        Professional ESP-IDF components built with best practices.
+        Fully documented APIs with examples and integration guides.
       </>
     ),
   },
   {
-    title: 'Focus on What Matters',
+    title: 'Production Ready',
     Svg: require('@site/static/img/undraw_docusaurus_tree.svg').default,
     description: (
       <>
-        Docusaurus lets you focus on your docs, and we&apos;ll do the chores. Go
-        ahead and move your docs into the <code>docs</code> directory.
+        Battle-tested components used in real-world IoT projects.
+        Comprehensive error handling and robust implementations.
       </>
     ),
   },
   {
-    title: 'Powered by React',
+    title: 'Open Source',
     Svg: require('@site/static/img/undraw_docusaurus_react.svg').default,
     description: (
       <>
-        Extend or customize your website layout by reusing React. Docusaurus can
-        be extended while reusing the same header and footer.
+        All components are open source and available on GitHub.
+        Contributions welcome! Built by the community, for the community.
       </>
     ),
   },
