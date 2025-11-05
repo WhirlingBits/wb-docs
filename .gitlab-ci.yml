@@ -1,2 +1,2 @@
 include:
-  - local: .gitlab/ci/generate-docs.yml
+  - local: .gitlab/ci/push_to_github.yml
