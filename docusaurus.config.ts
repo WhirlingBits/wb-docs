@@ -320,7 +320,7 @@ const config: Config = {
     
     colorMode: {
       defaultMode: 'light',
-      disableSwitch: false,
+      disableSwitch: true,
       respectPrefersColorScheme: true,
     },
     
