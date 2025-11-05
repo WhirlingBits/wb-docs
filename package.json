@@ -1,37 +1,51 @@
 {
-  "name": "wb-docs",
-  "version": "1.0.0",
+  "name": "temp",
+  "version": "0.0.0",
   "private": true,
   "scripts": {
-    "clean": "del-cli docs/out docs/mdx || true",
-    "doxygen": "mkdir -p docs/out && doxygen Doxyfile",
+    "doxygen": "del-cli static/doxygen doxygen/xml; (cd doxygen; doxygen config.doxyfile)",
     "convert-doxygen": "doxygen2docusaurus",
-    "generate-docs": "npm run clean && npm run doxygen && npm run convert-doxygen",
-    "build": "npm run generate-docs && docusaurus build",
+    "docusaurus": "docusaurus",
     "start": "docusaurus start",
-    "serve": "docusaurus serve"
+    "build": "docusaurus build",
+    "swizzle": "docusaurus swizzle",
+    "deploy": "docusaurus deploy",
+    "clear": "docusaurus clear",
+    "serve": "docusaurus serve",
+    "write-translations": "docusaurus write-translations",
+    "write-heading-ids": "docusaurus write-heading-ids",
+    "typecheck": "tsc"
   },
   "dependencies": {
-    "@docusaurus/core": "^3.9.2",
-    "@docusaurus/preset-classic": "^3.9.2"
+    "@docusaurus/core": "3.9.2",
+    "@docusaurus/plugin-client-redirects": "^3.9.2",
+    "@docusaurus/preset-classic": "3.9.2",
+    "@mdx-js/react": "^3.0.0",
+    "clsx": "^2.0.0",
+    "prism-react-renderer": "^2.3.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@docusaurus/module-type-aliases": "3.9.2",
+    "@docusaurus/tsconfig": "3.9.2",
+    "@docusaurus/types": "3.9.2",
     "@xpack/doxygen2docusaurus": "^2.0.0",
-    "del-cli": "^5.1.0"
+    "typescript": "~5.6.2"
   },
-  "config": {
-    "doxygen2docusaurus": {
-      "baseUrl": "/micro-test-plus-xpack/",
-      "input": "docs/out/xml",
-      "output": "docs/mdx",
-      "options": {
-        "cleanOutput": true,
-        "collapseMembers": true,
-        "linkToSource": true,
-        "frontMatter": {
-          "sidebar_position": 1
-        }
-      }
-    }
+  "browserslist": {
+    "production": [
+      ">0.5%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 3 chrome version",
+      "last 3 firefox version",
+      "last 5 safari version"
+    ]
+  },
+  "engines": {
+    "node": ">=20.0"
   }
 }
