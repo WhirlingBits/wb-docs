@@ -1,0 +1,47 @@
+{
+  "apiSidebar": [
+    {
+      "type": "doc",
+      "id": "index",
+      "label": "Overview"
+    }
+,
+    {
+      "type": "category",
+      "label": "API Reference",
+      "collapsed": false,
+      "items": [
+        {
+          "type": "doc",
+          "id": "wb_idf_i2c",
+          "label": "I2C Master Driver"
+        }
+,
+        {
+          "type": "doc",
+          "id": "wb_idf_i2c_init",
+          "label": "Initialization"
+        }
+,
+        {
+          "type": "doc",
+          "id": "wb_idf_i2c_byte",
+          "label": "Byte Operations"
+        }
+,
+        {
+          "type": "doc",
+          "id": "wb_idf_i2c_bit",
+          "label": "Bit Operations"
+        }
+,
+        {
+          "type": "doc",
+          "id": "wb_idf_i2c_word",
+          "label": "Word Operations"
+        }
+
+      ]
+    }
+  ]
+}

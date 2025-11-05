@@ -1,0 +1,22 @@
+{
+  "apiSidebar": [
+    {
+      "type": "doc",
+      "id": "index",
+      "label": "Overview"
+    },
+    {
+      "type": "category",
+      "label": "I2C Master Driver",
+      "collapsible": true,
+      "collapsed": false,
+      "items": [
+        "wb_idf_i2c",
+        "wb_idf_i2c_init",
+        "wb_idf_i2c_byte",
+        "wb_idf_i2c_bit",
+        "wb_idf_i2c_word"
+      ]
+    }
+  ]
+}
