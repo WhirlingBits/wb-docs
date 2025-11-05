@@ -273,14 +273,17 @@ const config: Config = {
   },
 
   // GitHub Pages deployment
-  url: 'https://whirlingbits.github.io',
-  baseUrl: '/wb-docs/',
+  url: 'https://docs.whirlingbits.de',
+  baseUrl: '/',
 
   organizationName: settings.branding.organizationName,
   projectName: 'wb-docs',
+  deploymentBranch: 'gh-pages',
+  trailingSlash: false,
 
   onBrokenLinks: 'warn',
   onBrokenAnchors: 'warn',
+  onBrokenMarkdownLinks: 'warn',
 
   i18n: {
     defaultLocale: 'en',
