@@ -33,7 +33,7 @@ interface ConfigData {
 
 // 🔥 Lade Config aus JSON
 function loadRepositoriesConfig(): ConfigData {
-  const configPath = path.join(__dirname, 'repositories.json');
+  const configPath = path.join(__dirname, 'docusaurus-config.json');
   
   try {
     const configContent = fs.readFileSync(configPath, 'utf-8');
@@ -46,7 +46,7 @@ function loadRepositoriesConfig(): ConfigData {
     
     return config;
   } catch (error) {
-    console.error('❌ Error loading repositories.json:', error);
+    console.error('❌ Error loading docusaurus-config.json:', error);
     
     // Fallback to empty config
     return {
