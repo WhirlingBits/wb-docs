@@ -7,12 +7,14 @@ type FeatureItem = {
   title: string;
   Svg: React.ComponentType<React.ComponentProps<'svg'>>;
   description: ReactNode;
+  color?: string;
 };
 
 const FeatureList: FeatureItem[] = [
   {
     title: 'ESP-IDF Components',
-    Svg: require('@site/static/img/esp_idf_components.png').default,
+    Svg: require('@site/static/img/esp_idf_components.svg').default,
+    color: '#ffffff',
     description: (
       <>
         Professional ESP-IDF components built with best practices.
@@ -22,7 +24,8 @@ const FeatureList: FeatureItem[] = [
   },
   {
     title: 'Production Ready',
-    Svg: require('@site/static/img/production_ready.png').default,
+    Svg: require('@site/static/img/production_ready.svg').default,
+    color: '#ffffff',
     description: (
       <>
         Battle-tested components used in real-world IoT projects.
@@ -32,7 +35,8 @@ const FeatureList: FeatureItem[] = [
   },
   {
     title: 'Open Source',
-    Svg: require('@site/static/img/open_source.png').default,
+    Svg: require('@site/static/img/open_source.svg').default,
+    color: '#ffffff',
     description: (
       <>
         All components are open source and available on GitHub.
@@ -42,11 +46,15 @@ const FeatureList: FeatureItem[] = [
   },
 ];
 
-function Feature({title, Svg, description}: FeatureItem) {
+function Feature({title, Svg, description, color}: FeatureItem) {
   return (
     <div className={clsx('col col--4')}>
       <div className="text--center">
-        <Svg className={styles.featureSvg} role="img" />
+        <Svg 
+          className={styles.featureSvg} 
+          role="img"
+          style={{ fill: color, color: color }}
+        />
       </div>
       <div className="text--center padding-horiz--md">
         <Heading as="h3">{title}</Heading>
