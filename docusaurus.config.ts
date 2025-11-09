@@ -357,7 +357,7 @@ const config: Config = {
       title: settings.branding.organizationName,
       logo: {
         alt: `${settings.branding.organizationName} Logo`,
-        src: 'img/logo.svg',
+        src: 'img/Whirlingbits_logo.png',
       },
       items: [
         // ✅ REMOVED: Haupt-Docs Link (da kein docs plugin mehr)
