@@ -4,19 +4,30 @@ import type * as Preset from '@docusaurus/preset-classic';
 import * as fs from 'fs';
 import * as path from 'path';
 
-// 🔥 Interface für Repository-Config
+// 🔥 Updated Interfaces
 interface RepoConfig {
   id: string;
   label: string;
   description: string;
+  category: string;
+  displayMode: 'toplevel' | 'category';
   editUrl: string;
   githubUrl: string;
   enabled: boolean;
 }
 
+interface CategoryConfig {
+  id: string;
+  label: string;
+  icon: string;
+  description: string;
+  position: 'left' | 'right';
+}
+
 interface ConfigData {
   repositories: RepoConfig[];
   settings: {
+    categories: CategoryConfig[];
     versioning: {
       enabled: boolean;
       showUnreleased: boolean;
@@ -31,7 +42,7 @@ interface ConfigData {
   };
 }
 
-// 🔥 Lade Config aus JSON
+// 🔥 Load configuration
 function loadRepositoriesConfig(): ConfigData {
   const configPath = path.join(__dirname, 'docusaurus-config.json');
   
@@ -39,19 +50,20 @@ function loadRepositoriesConfig(): ConfigData {
     const configContent = fs.readFileSync(configPath, 'utf-8');
     const config: ConfigData = JSON.parse(configContent);
     
-    // Nur aktivierte Repositories
+    // Filter enabled repositories
     config.repositories = config.repositories.filter(r => r.enabled);
     
-    console.log(`📦 Geladene Repositories: ${config.repositories.map(r => r.id).join(', ')}`);
+    console.log(`📦 Loaded ${config.repositories.length} enabled repositories`);
     
     return config;
   } catch (error) {
     console.error('❌ Error loading docusaurus-config.json:', error);
     
-    // Fallback to empty config
+    // Fallback
     return {
       repositories: [],
       settings: {
+        categories: [],
         versioning: {
           enabled: true,
           showUnreleased: true,
@@ -68,7 +80,6 @@ function loadRepositoriesConfig(): ConfigData {
   }
 }
 
-// ✅ FIXED: Multi-Instance Structure - Check <repo>/ (not docs-<repo>/)
 function docsDirectoryExists(repoId: string): boolean {
   const docsPath = path.join(__dirname, repoId);
   
@@ -76,19 +87,16 @@ function docsDirectoryExists(repoId: string): boolean {
     return false;
   }
   
-  // ✅ Check for Markdown files directly in root (flat structure)
   const files = fs.readdirSync(docsPath);
   const hasMarkdownFiles = files.some(file => 
     file.endsWith('.md') || file.endsWith('.mdx')
   );
   
-  // ✅ Multi-Instance: Check for <repo>_versioned_docs/
   const hasVersionedDocs = fs.existsSync(path.join(__dirname, `${repoId}_versioned_docs`));
   
   return hasMarkdownFiles || hasVersionedDocs;
 }
 
-// ✅ FIXED: Multi-Instance - Load from <repo>_versions.json
 function loadVersionsForRepo(repoId: string): string[] {
   const versionsPath = path.join(__dirname, `${repoId}_versions.json`);
   
@@ -97,24 +105,21 @@ function loadVersionsForRepo(repoId: string): string[] {
       const versionsContent = fs.readFileSync(versionsPath, 'utf-8');
       const versions = JSON.parse(versionsContent);
       
-      console.log(`   📋 Versionen für ${repoId}: ${versions.join(', ')}`);
+      console.log(`   📋 Versions for ${repoId}: ${versions.join(', ')}`);
       
       return versions;
     }
   } catch (error) {
-    console.warn(`⚠️  Fehler beim Laden von ${repoId}_versions.json:`, error);
+    console.warn(`⚠️  Error loading ${repoId}_versions.json:`, error);
   }
 
-  // Fallback: No versions
   return [];
 }
 
-// ✅ FIXED: Multi-Instance Structure
 function generateVersionConfig(repoId: string, settings: ConfigData['settings']) {
   const versions = loadVersionsForRepo(repoId);
   const docsPath = path.join(__dirname, repoId);
 
-  // ✅ Check for Markdown files directly in root (current)
   let hasCurrentDocs = false;
   if (fs.existsSync(docsPath)) {
     const files = fs.readdirSync(docsPath);
@@ -123,29 +128,26 @@ function generateVersionConfig(repoId: string, settings: ConfigData['settings'])
     );
   }
 
-  // ✅ Multi-Instance: Check for <repo>_versioned_docs/
   const versionedDocsPath = path.join(__dirname, `${repoId}_versioned_docs`);
   const hasVersionedDocs = fs.existsSync(versionedDocsPath);
 
-  // ✅ Validate that versions REALLY exist
   let validVersions: string[] = [];
   if (hasVersionedDocs && versions.length > 0) {
     validVersions = versions.filter(version => {
       const versionPath = path.join(versionedDocsPath, `version-${version}`);
       const exists = fs.existsSync(versionPath);
 
-      // Check if Markdown files exist
       if (exists) {
         const files = fs.readdirSync(versionPath);
         const hasMd = files.some(f => f.endsWith('.md') || f.endsWith('.mdx'));
         if (!hasMd) {
-          console.warn(`   ⚠️  Version ${version}: ${repoId}_versioned_docs/version-${version}/ existiert aber keine MD-Dateien!`);
+          console.warn(`   ⚠️  Version ${version}: ${repoId}_versioned_docs/version-${version}/ exists but no MD files!`);
           return false;
         }
       }
       
       if (!exists) {
-        console.warn(`   ⚠️  Version ${version} in ${repoId}_versions.json aber ${repoId}_versioned_docs/version-${version}/ fehlt!`);
+        console.warn(`   ⚠️  Version ${version} in ${repoId}_versions.json but ${repoId}_versioned_docs/version-${version}/ missing!`);
       }
       return exists;
     });
@@ -157,13 +159,11 @@ function generateVersionConfig(repoId: string, settings: ConfigData['settings'])
   console.log(`      - valid ${repoId}_versioned_docs/: ${validVersions.length > 0 ? validVersions.join(', ') : 'none'}`);
   console.log(`      - current docs (${repoId}/*.md): ${hasCurrentDocs}`);
 
-  // ✅ Case 1 - No docs at all
   if (validVersions.length === 0 && !hasCurrentDocs) {
     console.warn(`⚠️  No documentation found for ${repoId}`);
     return null;
   }
 
-  // ✅ Case 2 - ONLY current (no versioning)
   if (validVersions.length === 0 && hasCurrentDocs) {
     console.log(`   ℹ️  ${repoId}: Only current (no versioning)`);
     return {
@@ -172,7 +172,6 @@ function generateVersionConfig(repoId: string, settings: ConfigData['settings'])
     };
   }
 
-  // ✅ Case 3 - ONLY versions (no current)
   if (validVersions.length > 0 && !hasCurrentDocs) {
     const lastVersion = validVersions[0];
 
@@ -185,7 +184,6 @@ function generateVersionConfig(repoId: string, settings: ConfigData['settings'])
     };
   }
 
-  // ✅ Case 4 - BOTH (current + versions)
   console.log(`   ✅ ${repoId}: Current + ${validVersions.length} versions`);
 
   return {
@@ -198,8 +196,9 @@ function generateVersionConfig(repoId: string, settings: ConfigData['settings'])
 // 🔥 Load configuration
 const repoConfig = loadRepositoriesConfig();
 const settings = repoConfig.settings;
+const categories = settings.categories || [];
 
-// 🔥 Filter only repositories with existing docs
+// 🔥 Filter repositories with existing docs
 const repositories = repoConfig.repositories.filter(repo => {
   const exists = docsDirectoryExists(repo.id);
   
@@ -207,7 +206,7 @@ const repositories = repoConfig.repositories.filter(repo => {
     console.warn(`⚠️  Skipping ${repo.id}: Directory ${repo.id}/ not found`);
     console.warn(`   Run './generate-docs.sh' to generate documentation`);
   } else {
-    console.log(`✅ ${repo.id}: Documentation found`);
+    console.log(`✅ ${repo.id}: Documentation found (category: ${repo.category}, display: ${repo.displayMode})`);
   }
   
   return exists;
@@ -215,12 +214,32 @@ const repositories = repoConfig.repositories.filter(repo => {
 
 console.log(`\n📚 Active repositories: ${repositories.length} of ${repoConfig.repositories.length}`);
 
-// ✅ FIXED: Multi-Instance Structure
+// 🔥 Group repositories by category (only for displayMode='category')
+const reposByCategory = repositories
+  .filter(repo => repo.displayMode === 'category')
+  .reduce((acc, repo) => {
+    if (!acc[repo.category]) {
+      acc[repo.category] = [];
+    }
+    acc[repo.category].push(repo);
+    return acc;
+  }, {} as Record<string, RepoConfig[]>);
+
+console.log(`\n📊 Repositories by display mode:`);
+const toplevelRepos = repositories.filter(r => r.displayMode === 'toplevel');
+if (toplevelRepos.length > 0) {
+  console.log(`   📌 Top-Level: ${toplevelRepos.map(r => r.id).join(', ')}`);
+}
+console.log(`\n📁 By category:`);
+Object.entries(reposByCategory).forEach(([category, repos]) => {
+  console.log(`   ${category}: ${repos.map(r => r.id).join(', ')}`);
+});
+
+// 🔥 Generate docs plugins
 const docsPlugins = repositories
   .map(repo => {
     const versionConfig = generateVersionConfig(repo.id, settings);
 
-    // ✅ Skip if no valid config
     if (!versionConfig) {
       console.warn(`⚠️  Skipping plugin for ${repo.id}: No valid configuration`);
       return null;
@@ -228,6 +247,8 @@ const docsPlugins = repositories
 
     console.log(`\n🔧 Plugin config for ${repo.id}:`);
     console.log(`   Label: ${repo.label}`);
+    console.log(`   Category: ${repo.category}`);
+    console.log(`   Display Mode: ${repo.displayMode}`);
     console.log(`   Path: ${repo.id}`);
     console.log(`   Versioning: ${versionConfig.disableVersioning ? 'disabled' : 'enabled'}`);
     if (!versionConfig.disableVersioning) {
@@ -237,7 +258,6 @@ const docsPlugins = repositories
     
     const basePath = repo.id;
     
-    // ✅ Sidebar-Pfad (Multi-Instance: <repo>/sidebars.json)
     const sidebarPath = fs.existsSync(path.join(__dirname, basePath, 'sidebars.json'))
       ? `./${basePath}/sidebars.json`
       : undefined;
@@ -251,7 +271,6 @@ const docsPlugins = repositories
         ...(sidebarPath && { sidebarPath }),
         editUrl: repo.editUrl,
 
-        // ✅ Spread ONLY the necessary options
         lastVersion: versionConfig.lastVersion,
         includeCurrentVersion: versionConfig.includeCurrentVersion,
         disableVersioning: versionConfig.disableVersioning,
@@ -272,7 +291,6 @@ const config: Config = {
     v4: true,
   },
 
-  // GitHub Pages deployment
   url: 'https://docs.whirlingbits.de',
   baseUrl: '/',
 
@@ -294,11 +312,8 @@ const config: Config = {
     [
       'classic',
       {
-        // ✅ REMOVED: docs plugin (nur Repository-Plugins)
         docs: false,
-        
         blog: false,
-        
         theme: {
           customCss: './src/css/custom.css',
         },
@@ -306,10 +321,8 @@ const config: Config = {
     ],
   ],
 
-  // 🔥 Dynamisch generierte Plugins
   plugins: docsPlugins,
 
-  // Markdown-Konfiguration
   markdown: {
     mermaid: true,
     format: 'detect',
@@ -324,32 +337,17 @@ const config: Config = {
       respectPrefersColorScheme: true,
     },
     
-    // ✅ Algolia Search Integration
     algolia: {
-      // The application ID provided by Algolia
       appId: '4GR9PMMKXX',
-
-      // Public API key: it is safe to commit it
       apiKey: '638385848c29478b55def3a3a03818f2',
-
       indexName: 'whirlingbits',
-
-      // Optional: see doc section below
       contextualSearch: true,
-
-      // Optional: Specify domains where the navigation should occur through window.location instead on history.push. Useful when our Algolia config crawls multiple documentation sites and we want to navigate with window.location.href to them.
       externalUrlRegex: 'docs\\.whirlingbits\\.de',
-
-      // Optional: Replace parts of the item URLs from Algolia. Useful when using the same search index for multiple deployments using a different baseUrl. You can use regexp or string in the `from` param. For example: localhost:3000 vs myCompany.com/docs
       replaceSearchResultPathname: {
-        from: '/docs/', // or as RegExp: /\/docs\//
+        from: '/docs/',
         to: '/',
       },
-
-      // Optional: Algolia search parameters
       searchParameters: {},
-
-      // Optional: path for search page that enabled by default (`false` to disable it)
       searchPagePath: 'search',
     },
     
@@ -360,24 +358,52 @@ const config: Config = {
         src: 'img/Whirlingbits_logo.png',
       },
       items: [
-        // ✅ REMOVED: Haupt-Docs Link (da kein docs plugin mehr)
+        // 🔥 Top-Level repositories (direct links)
+        ...repositories
+          .filter(repo => repo.displayMode === 'toplevel')
+          .map(repo => {
+            console.log(`✅ Navbar top-level item: ${repo.label}`);
+            return {
+              type: 'doc' as const,
+              docId: 'index',
+              docsPluginId: repo.id,
+              label: repo.label,
+              position: 'left' as const,
+            };
+          }),
         
-        // 🔥 Repository-Links
-        ...repositories.map(repo => ({
-          type: 'doc' as const,
-          docId: 'index',
-          docsPluginId: repo.id,
-          position: 'left' as const,
-          label: repo.label,
-        })),
+        // 🔥 Category dropdowns (grouped repos)
+        ...categories
+          .map(category => {
+            const categoryRepos = reposByCategory[category.id] || [];
+            
+            if (categoryRepos.length === 0) {
+              console.warn(`⚠️  Category '${category.label}' has no repositories`);
+              return null;
+            }
+            
+            console.log(`✅ Navbar category dropdown: ${category.label} (${categoryRepos.length} repos)`);
+            
+            return {
+              type: 'dropdown' as const,
+              label: category.label,
+              position: category.position,
+              items: categoryRepos.map(repo => ({
+                type: 'doc' as const,
+                docId: 'index',
+                docsPluginId: repo.id,
+                label: repo.label,
+              })),
+            };
+          })
+          .filter((item): item is NonNullable<typeof item> => item !== null),
         
-        // ✅ Version-Dropdowns NUR für Repositories
+        // 🔥 Version dropdowns (per repo)
         ...repositories
           .map(repo => {
             const versions = loadVersionsForRepo(repo.id);
             const docsPath = path.join(__dirname, repo.id);
             
-            // Prüfe auf current
             let hasCurrentDocs = false;
             if (fs.existsSync(docsPath)) {
               const files = fs.readdirSync(docsPath);
@@ -386,7 +412,6 @@ const config: Config = {
               );
             }
             
-            // ✅ Multi-Instance: Prüfe <repo>_versioned_docs/
             const versionedDocsPath = path.join(__dirname, `${repo.id}_versioned_docs`);
             let validVersions: string[] = [];
             if (fs.existsSync(versionedDocsPath) && versions.length > 0) {
@@ -396,16 +421,14 @@ const config: Config = {
               });
             }
             
-            // Zähle verfügbare Versionen
             const totalVersions = hasCurrentDocs ? validVersions.length + 1 : validVersions.length;
             
-            // ✅ Zeige Dropdown nur wenn mehr als 1 Version verfügbar
             if (totalVersions <= 1) {
-              console.log(`   ⏭️  Kein Version-Dropdown für ${repo.id} (nur ${totalVersions} Version)`);
+              console.log(`   ⏭️  No version dropdown for ${repo.id} (only ${totalVersions} version)`);
               return null;
             }
             
-            console.log(`   ✅ Version-Dropdown für ${repo.id} (${totalVersions} Versionen)`);
+            console.log(`   ✅ Version dropdown for ${repo.id} (${totalVersions} versions)`);
             
             return {
               type: 'docsVersionDropdown' as const,
@@ -422,7 +445,7 @@ const config: Config = {
           })
           .filter((item): item is NonNullable<typeof item> => item !== null),
         
-        // 🔥 GitHub-Link
+        // 🔥 GitHub link
         {
           href: `https://github.com/${settings.branding.organizationName}`,
           label: 'GitHub',
@@ -436,17 +459,14 @@ const config: Config = {
       links: [
         {
           title: 'Documentation',
-          items: [
-            // ✅ REMOVED: Getting Started Link (da kein docs/)
-            ...repositories.map(repo => ({
-              label: `${repo.label} API`,
-              to: `/${repo.id}`,
-            })),
-          ],
+          items: repositories.slice(0, 5).map(repo => ({
+            label: `${repo.label} API`,
+            to: `/${repo.id}`,
+          })),
         },
         {
           title: 'Repositories',
-          items: repositories.map(repo => ({
+          items: repositories.slice(0, 5).map(repo => ({
             label: repo.label,
             href: repo.githubUrl,
           })),
@@ -467,7 +487,6 @@ const config: Config = {
                   return false;
                 }
                 
-                // Prüfe ob mindestens eine Version existiert
                 return versions.some(version => {
                   const versionPath = path.join(versionedDocsPath, `version-${version}`);
                   return fs.existsSync(versionPath);

@@ -4,12 +4,44 @@
       "id": "wb-idf-core",
       "label": "wb-idf-core",
       "description": "Core functionality and base components",
+      "category": "drivers",
+      "displayMode": "toplevel",
       "editUrl": "https://github.com/WhirlingBits/wb-idf-core/tree/main/",
       "githubUrl": "https://github.com/WhirlingBits/wb-idf-core",
       "enabled": true
     }
   ],
   "settings": {
+    "categories": [
+      {
+        "id": "drivers",
+        "label": "\ud83d\udd27 Hardware Drivers",
+        "icon": "\ud83d\udd27",
+        "description": "Low-level peripheral drivers for ESP32",
+        "position": "left"
+      },
+      {
+        "id": "projects",
+        "label": "\ud83c\udfb5 Projects",
+        "icon": "\ud83c\udfb5",
+        "description": "Complete IoT applications and examples",
+        "position": "left"
+      },
+      {
+        "id": "hardware",
+        "label": "\ud83c\udfd7\ufe0f Hardware",
+        "icon": "\ud83c\udfd7\ufe0f",
+        "description": "PCB designs and 3D printable models",
+        "position": "left"
+      },
+      {
+        "id": "docs",
+        "label": "\ud83d\udcda Documentation",
+        "icon": "\ud83d\udcda",
+        "description": "Guides, tutorials, and references",
+        "position": "left"
+      }
+    ],
     "versioning": {
       "enabled": true,
       "showUnreleased": true,

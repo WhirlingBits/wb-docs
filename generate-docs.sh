@@ -32,6 +32,8 @@ declare -gA REPOS
 declare -gA REPOS_LABELS
 declare -gA REPOS_ENABLED
 declare -gA REPOS_DESCRIPTIONS
+declare -gA REPOS_CATEGORIES
+declare -gA REPOS_DISPLAY_MODE
 
 load_repositories() {
     echo_step "Loading repository configuration from $REPOS_CONFIG_FILE..."
@@ -46,7 +48,7 @@ load_repositories() {
     local count=0
     local enabled_count=0
     
-    while IFS='|' read -r repo_id repo_url label description enabled || [ -n "$repo_id" ]; do
+    while IFS='|' read -r repo_id repo_url label description field5 field6 field7 || [ -n "$repo_id" ]; do
         [[ "$repo_id" =~ ^#.*$ ]] && continue
         [[ -z "$repo_id" ]] && continue
         
@@ -54,7 +56,29 @@ load_repositories() {
         repo_url=$(echo "$repo_url" | xargs)
         label=$(echo "$label" | xargs)
         description=$(echo "$description" | xargs)
-        enabled=$(echo "$enabled" | xargs)
+        field5=$(echo "$field5" | xargs)
+        field6=$(echo "$field6" | xargs)
+        field7=$(echo "$field7" | xargs)
+        
+        # Detect format
+        local category display_mode enabled
+        
+        if [ -z "$field7" ] && [ -z "$field6" ]; then
+            # Old format (5 fields): REPO_ID|URL|LABEL|DESC|ENABLED
+            category="drivers"
+            display_mode="toplevel"
+            enabled="$field5"
+        elif [ -z "$field7" ]; then
+            # Medium format (6 fields): REPO_ID|URL|LABEL|DESC|CATEGORY|ENABLED
+            category="$field5"
+            display_mode="category"
+            enabled="$field6"
+        else
+            # New format (7 fields): REPO_ID|URL|LABEL|DESC|CATEGORY|DISPLAY_MODE|ENABLED
+            category="$field5"
+            display_mode="$field6"
+            enabled="$field7"
+        fi
         
         if [ -z "$repo_url" ]; then
             echo_warn "Skipping invalid line: $repo_id (no URL)"
@@ -79,14 +103,23 @@ load_repositories() {
         REPOS_LABELS["$repo_id"]="$label"
         REPOS_ENABLED["$repo_id"]="${enabled:-true}"
         REPOS_DESCRIPTIONS["$repo_id"]="$description"
+        REPOS_CATEGORIES["$repo_id"]="$category"
+        REPOS_DISPLAY_MODE["$repo_id"]="${display_mode:-category}"
         
         count=$((count + 1))
         
+        local display_icon
+        if [ "$display_mode" = "toplevel" ]; then
+            display_icon="📌"
+        else
+            display_icon="📁"
+        fi
+        
         if [ "${enabled:-true}" = "true" ]; then
             enabled_count=$((enabled_count + 1))
-            echo_info "  ✅ $label ($repo_id)"
+            echo_info "  ✅ $display_icon $label ($repo_id) [$category/$display_mode]"
         else
-            echo_warn "  ⏸️  $label ($repo_id) - deactivated"
+            echo_warn "  ⏸️  $display_icon $label ($repo_id) [$category/$display_mode] - deactivated"
         fi
         
     done < "$REPOS_CONFIG_FILE"
@@ -120,30 +153,89 @@ with open(config_file, 'r') as f:
         line = line.strip()
         if not line or line.startswith('#'):
             continue
+        
         parts = line.split('|')
-        if len(parts) < 5:
+        
+        # Support 5, 6, or 7 field format
+        if len(parts) == 5:
+            # Old format: REPO_ID|REPO_URL|LABEL|DESCRIPTION|ENABLED
+            repo_id = parts[0].strip()
+            repo_url = parts[1].strip()
+            label = parts[2].strip()
+            description = parts[3].strip()
+            category = 'drivers'
+            display_mode = 'toplevel'
+            enabled = parts[4].strip().lower() == 'true'
+        elif len(parts) == 6:
+            # Medium format: REPO_ID|REPO_URL|LABEL|DESCRIPTION|CATEGORY|ENABLED
+            repo_id = parts[0].strip()
+            repo_url = parts[1].strip()
+            label = parts[2].strip()
+            description = parts[3].strip()
+            category = parts[4].strip()
+            display_mode = 'category'
+            enabled = parts[5].strip().lower() == 'true'
+        elif len(parts) == 7:
+            # New format: REPO_ID|REPO_URL|LABEL|DESCRIPTION|CATEGORY|DISPLAY_MODE|ENABLED
+            repo_id = parts[0].strip()
+            repo_url = parts[1].strip()
+            label = parts[2].strip()
+            description = parts[3].strip()
+            category = parts[4].strip()
+            display_mode = parts[5].strip()
+            enabled = parts[6].strip().lower() == 'true'
+        else:
+            print(f"⚠️  Skipping invalid line (expected 5, 6, or 7 fields): {line}")
             continue
         
-        repo_id = parts[0].strip()
-        repo_url = parts[1].strip()
-        label = parts[2].strip()
-        description = parts[3].strip()
-        enabled = parts[4].strip().lower() == 'true'
-        
+        # Remove .git suffix if present
         github_url = repo_url.replace('.git', '')
         
         repos_data.append({
             "id": repo_id,
             "label": label,
             "description": description,
+            "category": category,
+            "displayMode": display_mode,
             "editUrl": f"{github_url}/tree/main/",
             "githubUrl": github_url,
             "enabled": enabled
         })
 
+# Configuration with categories
 config = {
     "repositories": repos_data,
     "settings": {
+        "categories": [
+            {
+                "id": "drivers",
+                "label": "🔧 Hardware Drivers",
+                "icon": "🔧",
+                "description": "Low-level peripheral drivers for ESP32",
+                "position": "left"
+            },
+            {
+                "id": "projects",
+                "label": "🎵 Projects",
+                "icon": "🎵",
+                "description": "Complete IoT applications and examples",
+                "position": "left"
+            },
+            {
+                "id": "hardware",
+                "label": "🏗️ Hardware",
+                "icon": "🏗️",
+                "description": "PCB designs and 3D printable models",
+                "position": "left"
+            },
+            {
+                "id": "docs",
+                "label": "📚 Documentation",
+                "icon": "📚",
+                "description": "Guides, tutorials, and references",
+                "position": "left"
+            }
+        ],
         "versioning": {
             "enabled": True,
             "showUnreleased": True,
@@ -158,10 +250,39 @@ config = {
     }
 }
 
-with open('repositories.json', 'w') as f:
+# Write to docusaurus-config.json
+with open('docusaurus-config.json', 'w') as f:
     json.dump(config, f, indent=2)
 
-print(f"✅ {len(repos_data)} repositories written")
+# Summary
+print(f"✅ Generated config with {len(repos_data)} repositories")
+print(f"\n📊 Repositories by display mode:")
+
+toplevel_repos = [r for r in repos_data if r['displayMode'] == 'toplevel']
+category_repos = [r for r in repos_data if r['displayMode'] == 'category']
+
+if toplevel_repos:
+    print(f"\n   📌 Top-Level ({len(toplevel_repos)}):")
+    for repo in toplevel_repos:
+        status = "✅" if repo['enabled'] else "⏸️"
+        print(f"      {status} {repo['label']} ({repo['id']})")
+
+if category_repos:
+    print(f"\n   📁 In Categories ({len(category_repos)}):")
+    categories = {}
+    for repo in category_repos:
+        cat = repo['category']
+        if cat not in categories:
+            categories[cat] = []
+        categories[cat].append(repo)
+    
+    for cat, repos in sorted(categories.items()):
+        enabled_count = sum(1 for r in repos if r['enabled'])
+        print(f"\n      {cat}: {len(repos)} repos ({enabled_count} enabled)")
+        for repo in repos:
+            status = "✅" if repo['enabled'] else "⏸️"
+            print(f"         {status} {repo['label']}")
+
 PYTHON_END
     
     local py_exit=$?
@@ -181,16 +302,25 @@ PYTHON_END
 create_default_config() {
     cat > "$REPOS_CONFIG_FILE" << 'EOF'
 # Repository Configuration
-# Format: REPO_ID|REPO_URL|LABEL|DESCRIPTION|ENABLED
+# Format: REPO_ID|REPO_URL|LABEL|DESCRIPTION|CATEGORY|DISPLAY_MODE|ENABLED
+#
+# DISPLAY_MODE: 
+#   - "toplevel" = Direkt in Navbar (eigenständiger Link)
+#   - "category" = In Kategorie-Dropdown
+# CATEGORY: drivers, projects, hardware, docs
 
-wb-idf-core|https://github.com/WhirlingBits/wb-idf-core|wb-idf-core|Core functionality|true
+# Top-Level (direkt sichtbar)
+wb-idf-core|https://github.com/WhirlingBits/wb-idf-core|Core Library|Core functionality and base components|drivers|toplevel|true
+
+# In Category-Dropdowns
+wb-idf-i2c|https://github.com/WhirlingBits/wb-idf-core|I²C Driver|I²C communication|drivers|category|false
 EOF
     
-    echo_info "Template-Konfiguration erstellt: $REPOS_CONFIG_FILE"
+    echo_info "Template configuration created: $REPOS_CONFIG_FILE"
 }
 
 cleanup_temp_files() {
-    echo_step "Räume temporäre Dateien auf..."
+    echo_step "Cleaning up temporary files..."
     local cleaned=0
     
     if [ "$KEEP_DOXYGEN_OUTPUT" = false ]; then
@@ -207,7 +337,6 @@ cleanup_temp_files() {
     [ "$KEEP_REPOS" = false ] && [ -d "repos" ] && rm -rf repos && ((cleaned++))
     [ -d "sidebars/.backup" ] && rm -rf sidebars/.backup && ((cleaned++))
     
-    # ✅ Safe ls-check
     if ls *.log 1> /dev/null 2>&1; then
         rm -f *.log
         ((cleaned++))
@@ -217,7 +346,7 @@ cleanup_temp_files() {
     [ -f "sidebars.js" ] && rm -f "sidebars.js" && ((cleaned++))
     [ -f "sidebars.json" ] && rm -f "sidebars.json" && ((cleaned++))
     
-    [ $cleaned -gt 0 ] && echo_info "✅ $cleaned Cleanup-Operationen"
+    [ $cleaned -gt 0 ] && echo_info "✅ $cleaned cleanup operations"
 }
 
 cleanup_on_exit() {
@@ -387,7 +516,6 @@ EOF
     echo_info "✅ Created $versions_page ($version_count versions)"
 }
 
-
 generate_sidebar_from_markdown() {
     local target_dir=$1
     local repo_name=$2
@@ -396,7 +524,6 @@ generate_sidebar_from_markdown() {
     
     echo_debug "Generating sidebar for: $target_dir"
 
-    # ✅ Check for DoxygenLayout.xml
     local layout_file="$repo_dir/DoxygenLayout.xml"
     local use_doxygen_layout=false
     
@@ -407,7 +534,6 @@ generate_sidebar_from_markdown() {
         echo_debug "No DoxygenLayout.xml - using flat structure"
     fi
 
-    # Find all Markdown files (excluding index.md and versions.md)
     local md_files=()
     while IFS= read -r -d '' file; do
         local basename=$(basename "$file" .md)
@@ -416,13 +542,11 @@ generate_sidebar_from_markdown() {
         md_files+=("$basename")
     done < <(find "$target_dir" -maxdepth 1 -type f -name "*.md" -print0 2>/dev/null)
     
-    # Sort alphabetically
     IFS=$'\n' md_files=($(sort <<<"${md_files[*]}"))
     unset IFS
     
     echo_debug "Found ${#md_files[@]} markdown files (excluding index/versions)"
     
-    # Create Sidebar JSON
     local sidebar_file
     if [ "$version" = "current" ]; then
         sidebar_file="$repo_name/sidebars.json"
@@ -431,7 +555,6 @@ generate_sidebar_from_markdown() {
         sidebar_file="${repo_name}_versioned_sidebars/version-$version-sidebars.json"
     fi
     
-    # ✅ Generate structured sidebar
     cat > "$sidebar_file" << 'EOF'
 {
   "apiSidebar": [
@@ -442,7 +565,6 @@ generate_sidebar_from_markdown() {
     }
 EOF
     
-    # ✅ Add API Reference category (only if files exist)
     if [ ${#md_files[@]} -gt 0 ]; then
         cat >> "$sidebar_file" << 'EOF'
 ,
@@ -453,41 +575,31 @@ EOF
       "items": [
 EOF
         
-        # ✅ FIX: First collect all entries with correct array handling
         if [ "$use_doxygen_layout" = true ]; then
             echo_debug "Parsing DoxygenLayout.xml for sidebar structure..."
 
-            # ✅ Collect all sidebar items in an array
             local sidebar_items=()
-            # ✅ Track used files separately
             local used_files=()
             
-            # Python helper for DoxygenLayout.xml parsing
             while IFS='|' read -r group_ref group_title has_subtabs; do
-                # Skip ERROR lines
                 [[ "$group_ref" == "ERROR" ]] && continue
 
-                # Check if MD file exists
                 local found_md=false
                 for md_file in "${md_files[@]}"; do
                     if [[ "$md_file" == *"$group_ref"* ]] || [[ "$md_file" == "$group_ref" ]]; then
                         found_md=true
 
-                        # Extract label from frontmatter
                         local label="$group_title"
                         if [ -f "$target_dir/$md_file.md" ] && [ -z "$group_title" ]; then
                             local frontmatter_label=$(sed -n '/^---$/,/^---$/p' "$target_dir/$md_file.md" | grep '^title:' | sed 's/^title: *//' | sed 's/^["'\'']//' | sed 's/["'\'']$//')
                             [ -n "$frontmatter_label" ] && label="$frontmatter_label"
                         fi
                         
-                        # Fallback Label
                         if [ -z "$label" ] || [ "$label" = "$group_ref" ]; then
                             label=$(echo "$md_file" | sed 's/wb_idf_//' | sed 's/_/ /g' | sed 's/\b\(.\)/\u\1/g')
                         fi
 
-                        # Store item info
                         sidebar_items+=("$md_file|$label")
-                        # ✅ FIX: Track used files separately
                         used_files+=("$md_file")
                         break
                     fi
@@ -504,7 +616,6 @@ try:
     tree = ET.parse('$layout_file')
     root = tree.getroot()
     
-    # Finde navindex
     navindex = root.find('.//navindex')
     if navindex is None:
         sys.exit(0)
@@ -517,7 +628,6 @@ try:
         title = tab.get('title', '')
         url = tab.get('url', '')
         
-        # Extrahiere @ref group_name aus URL
         import re
         ref_match = re.search(r'@ref\s+(\w+)', url)
         if ref_match:
@@ -525,7 +635,6 @@ try:
             has_subtabs = 'yes' if tab.findall('tab') else 'no'
             print(f"{group_ref}|{title}|{has_subtabs}")
             
-            # Sub-Tabs
             for subtab in tab.findall('tab'):
                 sub_title = subtab.get('title', '')
                 sub_url = subtab.get('url', '')
@@ -540,7 +649,6 @@ except Exception as e:
 PYTHON_EOF
 )
 
-            # ✅ Generate JSON from collected items
             local first=true
             for item in "${sidebar_items[@]}"; do
                 IFS='|' read -r md_file label <<< "$item"
@@ -560,7 +668,6 @@ EOF
             for md_file in "${md_files[@]}"; do
                 [ -z "$md_file" ] && continue
 
-                # ✅ Check if already used (exact string comparison)
                 local is_used=false
                 for used in "${used_files[@]}"; do
                     if [ "$md_file" = "$used" ]; then
@@ -569,13 +676,11 @@ EOF
                     fi
                 done
 
-                # Skip already used files
                 [ "$is_used" = true ] && continue
                 
                 [ "$first" = false ] && echo "," >> "$sidebar_file"
                 first=false
 
-                # Extract label from frontmatter
                 local label="$md_file"
                 if [ -f "$target_dir/$md_file.md" ]; then
                     local frontmatter_label=$(sed -n '/^---$/,/^---$/p' "$target_dir/$md_file.md" | grep '^title:' | sed 's/^title: *//' | sed 's/^["'\'']//' | sed 's/["'\'']$//')
@@ -595,7 +700,6 @@ EOF
 EOF
             done
         else
-            # ✅ Fallback: Simple alphabetical list (without DoxygenLayout.xml)
             echo_debug "Using flat structure (no DoxygenLayout.xml)..."
             
             local first=true
@@ -603,7 +707,6 @@ EOF
                 [ "$first" = false ] && echo "," >> "$sidebar_file"
                 first=false
 
-                # Extract label from frontmatter
                 local label="$md_file"
                 if [ -f "$target_dir/$md_file.md" ]; then
                     local frontmatter_label=$(sed -n '/^---$/,/^---$/p' "$target_dir/$md_file.md" | grep '^title:' | sed 's/^title: *//' | sed 's/^["'\'']//' | sed 's/["'\'']$//')
@@ -631,7 +734,6 @@ EOF
 EOF
     fi
 
-    # ✅ Close sidebar
     cat >> "$sidebar_file" << 'EOF'
   ]
 }
@@ -645,7 +747,7 @@ process_repo() {
     local repo_url=$2
     local version=${3:-"current"}
     
-    [ "${REPOS_ENABLED[$repo_name]}" != "true" ] && echo_warn "Überspringe $repo_name" && return 0
+    [ "${REPOS_ENABLED[$repo_name]}" != "true" ] && echo_warn "Skipping $repo_name" && return 0
     
     local label="${REPOS_LABELS[$repo_name]}"
     
@@ -656,7 +758,6 @@ process_repo() {
     
     local repo_dir="repos/$repo_name"
     
-    # Clone/Update
     if [ -d "$repo_dir" ]; then
         cd "$repo_dir" || return 1
         git fetch --all --tags --quiet 2>/dev/null || true
@@ -671,7 +772,6 @@ process_repo() {
     
     cd "$repo_dir" || return 1
     
-    # Checkout Version
     local git_tag
     if [ "$version" = "current" ]; then
         if ! git checkout main 2>/dev/null && ! git checkout master 2>/dev/null; then
@@ -692,7 +792,6 @@ process_repo() {
     
     cd - > /dev/null || return 1
     
-    # Doxygen
     if [ ! -f "$repo_dir/Doxyfile" ]; then
         echo_error "Doxyfile not found"
         return 1
@@ -707,14 +806,13 @@ process_repo() {
     cd - > /dev/null || return 1
     
     if [ ! -d "$repo_dir/doxygen/xml" ]; then
-        echo_error "XML fehlt"
+        echo_error "XML missing"
         return 1
     fi
     
     local xml_count=$(find "$repo_dir/doxygen/xml" -name "*.xml" 2>/dev/null | wc -l)
-    echo_info "✅ $xml_count XML-Dateien"
+    echo_info "✅ $xml_count XML files"
     
-    # Target Directory
     local target_dir
     if [ "$version" = "current" ]; then
         target_dir="$repo_name"
@@ -725,20 +823,17 @@ process_repo() {
     echo_debug "Target: $target_dir"
     mkdir -p "$target_dir"
     
-    # Markdown conversion
     if [ ! -f "doxygen_to_markdown.py" ]; then
         echo_error "doxygen_to_markdown.py not found"
         return 1
     fi
     
-    # ✅ Pass DoxygenLayout.xml if available
     local layout_arg=""
     if [ -f "$repo_dir/DoxygenLayout.xml" ]; then
         layout_arg="--layout $repo_dir/DoxygenLayout.xml"
         echo_debug "Using DoxygenLayout.xml for structure"
     fi
     
-    # ✅ FIX: Capture output and exit code separately
     local py_output
     py_output=$(python3 doxygen_to_markdown.py \
         --xml-dir "$repo_dir/doxygen/xml" \
@@ -747,7 +842,6 @@ process_repo() {
         $layout_arg 2>&1)
     local py_exit=$?
     
-    # Show Output (without "Processing")
     echo "$py_output" | grep -v "Processing"
     
     if [ $py_exit -ne 0 ]; then
@@ -755,13 +849,11 @@ process_repo() {
         return 1
     fi
     
-    # Flatten api/
     if [ -d "$target_dir/api" ]; then
         find "$target_dir/api" -maxdepth 1 -type f -exec mv {} "$target_dir/" \; 2>/dev/null
         rmdir "$target_dir/api" 2>/dev/null || true
     fi
     
-    # .md Extension
     for file in "$target_dir"/*; do
         if [ -f "$file" ] && [[ ! "$file" =~ \.(md|mdx|json)$ ]]; then
             if file "$file" | grep -q "text"; then
@@ -770,7 +862,6 @@ process_repo() {
         fi
     done
     
-    # Check Markdown
     local md_count=$(find "$target_dir" -maxdepth 1 -type f \( -name "*.md" -o -name "*.mdx" \) 2>/dev/null | wc -l)
     
     if [ $md_count -eq 0 ]; then
@@ -778,7 +869,6 @@ process_repo() {
         return 1
     fi
     
-    # Flatten groups/
     if [ -d "$target_dir/groups" ]; then
         mv "$target_dir/groups/"* "$target_dir/" 2>/dev/null
         rmdir "$target_dir/groups" 2>/dev/null || true
@@ -789,7 +879,6 @@ process_repo() {
             {} + 2>/dev/null
     fi
     
-    # Cleanup
     for unwanted in files directories namespaces classes api; do
         [ -d "$target_dir/$unwanted" ] && rm -rf "$target_dir/$unwanted"
     done
@@ -800,17 +889,16 @@ process_repo() {
         -e 's/<a href="#[^"]*">More\.\.\.<\/a>//g' \
         {} + 2>/dev/null
     
-    # ✅ REPLACED: Sidebar handling - Generate from Markdown files + DoxygenLayout.xml
     generate_sidebar_from_markdown "$target_dir" "$repo_name" "$version"
     
-    echo_info "✅ $label ($version): $md_count Module"
+    echo_info "✅ $label ($version): $md_count modules"
     return 0
 }
 
 main() {
     echo "═══════════════════════════════════════════════════"
-    echo_info "WhirlingBits Documentation Generator v3.3"
-    echo_info "Multi-Instance Docusaurus Structure + DoxygenLayout.xml"
+    echo_info "WhirlingBits Documentation Generator v3.4"
+    echo_info "Multi-Instance + Categories + Display Modes"
     echo "═══════════════════════════════════════════════════"
     echo ""
     
@@ -870,12 +958,10 @@ main() {
             fi
         done
 
-        # ✅ UPDATED: Create versions.json and versions.md
         if [ -n "$released_versions" ]; then
             echo_debug "Creating versions.json with: $released_versions"
             create_versions_json "$repo_name" "$released_versions"
             
-            # ✅ NEW: Create versions.md overview page
             echo_debug "Creating versions.md for: $repo_name"
             create_versions_page "$repo_name" "current $released_versions"
         else
@@ -891,12 +977,17 @@ main() {
     [ $failed -gt 0 ] && echo_error "   ❌ Failed: $failed"
 
     echo ""
-    echo_info "🎯 Multi-Instance Structure (Docusaurus Standard):"
+    echo_info "🎯 Multi-Instance Structure (with Categories):"
     for repo_name in "${!REPOS[@]}"; do
         [ "${REPOS_ENABLED[$repo_name]}" != "true" ] && continue
         
+        local display_mode="${REPOS_DISPLAY_MODE[$repo_name]}"
+        local category="${REPOS_CATEGORIES[$repo_name]}"
+        local display_icon="📌"
+        [ "$display_mode" = "category" ] && display_icon="📁"
+        
         echo ""
-        echo "   $repo_name/ (current)"
+        echo "   $display_icon $repo_name/ (current) [$category/$display_mode]"
         [ -f "$repo_name/sidebars.json" ] && echo "   ├── sidebars.json ✅"
         [ -f "$repo_name/versions.md" ] && echo "   ├── versions.md ✅"
         [ -f "${repo_name}_versions.json" ] && echo "   ${repo_name}_versions.json: $(cat ${repo_name}_versions.json 2>/dev/null)"
