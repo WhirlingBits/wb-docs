@@ -499,7 +499,7 @@ const config: Config = {
           ],
         },
       ],
-      copyright: `Copyright © ${new Date().getFullYear()} ${settings.branding.organizationName}. Built with Docusaurus.`,
+      copyright: `Copyright © ${new Date().getFullYear()} ${settings.branding.organizationName}. Version ${require('./package.json').version}`,
     },
     
     prism: {
