@@ -32,14 +32,6 @@ ESP_OK if successful, error code otherwise
 
 This function reads two consecutive bytes and combines them into a 16-bit word.
 
-Handle to the I2C master device
-
-Starting memory address
-
-Pointer to store the read word
-
-ESP_OK if successful, error code otherwise
-
 ---
 
 ### wb_i2c_master_bus_read_word_bit
@@ -62,16 +54,6 @@ esp_err_t wb_i2c_master_bus_read_word_bit(i2c_master_dev_handle_t dev_handle, ui
 ESP_OK if successful, error code otherwise
 
 This function reads a word and returns the value of the specified bit.
-
-Handle to the I2C master device
-
-Memory address to read from
-
-Bit number to read (0-15, where 0 is LSB)
-
-Pointer to store the bit value (0 or 1)
-
-ESP_OK if successful, error code otherwise
 
 ---
 
@@ -97,18 +79,6 @@ ESP_OK if successful, otherwise an error code
 
 This function reads a word and extracts a range of bits.
 
-Handle to the I2C device
-
-Memory address to read from
-
-Starting bit position (MSB of the range, 0-15)
-
-Number of bits to read (1-16)
-
-Pointer to store the extracted bits
-
-ESP_OK if successful, otherwise an error code
-
 ---
 
 ### wb_i2c_master_bus_write_word
@@ -130,14 +100,6 @@ esp_err_t wb_i2c_master_bus_write_word(i2c_master_dev_handle_t dev_handle, uint8
 ESP_OK if successful, otherwise an error code
 
 This function writes a 16-bit word as two consecutive bytes.
-
-Handle to the I2C master device
-
-Starting memory address
-
-Word to write
-
-ESP_OK if successful, otherwise an error code
 
 ---
 
@@ -162,16 +124,6 @@ ESP_OK if successful, otherwise an error code
 
 This function reads the current word, modifies the specified bit, and writes it back to the device.
 
-Handle to the I2C master device
-
-Memory address to write to
-
-Bit position to write (0-15, where 0 is LSB)
-
-Bit value to write (0 or 1)
-
-ESP_OK if successful, otherwise an error code
-
 ---
 
 ### wb_i2c_master_bus_write_word_bits
@@ -195,17 +147,5 @@ esp_err_t wb_i2c_master_bus_write_word_bits(i2c_master_dev_handle_t dev_handle, 
 ESP_OK if successful, error code otherwise
 
 This function reads the current word, modifies the specified bit range, and writes it back to the device.
-
-Handle to the I2C master device
-
-Memory address to write to
-
-Starting bit position (MSB of the range, 0-15)
-
-Number of bits to write (1-16)
-
-Bit values to write
-
-ESP_OK if successful, error code otherwise
 
 ---

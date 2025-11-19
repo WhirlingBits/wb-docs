@@ -30,14 +30,6 @@ ESP_OK if successful, error code otherwise
 
 This function reads a single byte from the I2C device at the specified memory address.
 
-Handle to the I2C master device
-
-Memory address to read from
-
-Pointer to store the read byte
-
-ESP_OK if successful, error code otherwise
-
 ---
 
 ### wb_i2c_master_bus_read_multiple_bytes
@@ -61,16 +53,6 @@ ESP_OK if successful, error code otherwise
 
 This function reads multiple consecutive bytes starting from the specified memory address.
 
-Handle to the I2C device
-
-Starting memory address
-
-Buffer to store read data
-
-Number of bytes to read
-
-ESP_OK if successful, error code otherwise
-
 ---
 
 ### wb_i2c_master_bus_write_byte
@@ -92,14 +74,6 @@ esp_err_t wb_i2c_master_bus_write_byte(i2c_master_dev_handle_t dev_handle, uint8
 ESP_OK if successful, error code otherwise
 
 This function writes a single byte to the specified memory address on the I2C device.
-
-Handle to the I2C master device
-
-Memory address to write to
-
-Byte to write
-
-ESP_OK if successful, error code otherwise
 
 ---
 
@@ -123,15 +97,5 @@ esp_err_t wb_i2c_master_bus_write_multiple_bytes(i2c_master_dev_handle_t dev_han
 ESP_OK if successful, error code otherwise
 
 This function writes multiple consecutive bytes starting from the specified memory address.
-
-Handle of the I2C device
-
-Starting memory address
-
-Pointer to the data buffer to write
-
-Number of bytes to write
-
-ESP_OK if successful, error code otherwise
 
 ---

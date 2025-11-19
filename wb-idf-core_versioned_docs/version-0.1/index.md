@@ -9,60 +9,22 @@ sidebar_label: Overview
 
 The package provides a collection of high-quality, production-ready components for ESP-IDF projects. All components follow ESP-IDF coding standards and best practices.
 
-- ✅ Thoroughly tested and documented
-- ✅ Seamless integration with ESP-IDF
-- ✅ Comprehensive API documentation
-- ✅ Real-world usage examples included
-- ✅ Designed for multi-threaded environments
+- ✅ Production-Ready: Thoroughly tested and documented
+- ✅ ESP-IDF Native: Seamless integration with ESP-IDF
+- ✅ Well-Documented: Comprehensive API documentation
+- ✅ Example-Rich: Real-world usage examples included
+- ✅ Thread-Safe: Designed for multi-threaded environments
 
-✅ Thoroughly tested and documented
-
-✅ Seamless integration with ESP-IDF
-
-✅ Comprehensive API documentation
-
-✅ Real-world usage examples included
-
-✅ Designed for multi-threaded environments
-
-- `I2C Master Driver` - Advanced I2C functionality 
-
+- I2C Master Driver - Advanced I2C functionality
 - Multiple bus support
 - Device probing and detection
 - Bit-level register manipulation
 - 16-bit word operations
-- Multiple bus support
-- Device probing and detection
-- Bit-level register manipulation
-- 16-bit word operations
-- (Coming soon)
-- (Coming soon)
+- SPI Master Driver (Coming soon)
+- UART Driver (Coming soon)
 
-`I2C Master Driver` - Advanced I2C functionality 
-
-- Multiple bus support
-- Device probing and detection
-- Bit-level register manipulation
-- 16-bit word operations
-
-Multiple bus support
-
-Device probing and detection
-
-Bit-level register manipulation
-
-16-bit word operations
-
-(Coming soon)
-
-(Coming soon)
-
-- (Coming soon)
-- (Coming soon)
-
-(Coming soon)
-
-(Coming soon)
+- GPIO Extensions (Coming soon)
+- ADC Utilities (Coming soon)
 
 Add to your ESP-IDF project using the component manager:
 
@@ -95,33 +57,23 @@ wb_i2c_master_byte_write(dev_handle,0x00,data,sizeof(data));
 
 Browse the complete API documentation by module:
 
-- `I2C Master Driver`
+- I2C Master Driver
 
-`I2C Master Driver`
+- ESP-IDF Version: 5.0 or higher
+- Supported SoCs: ESP32, ESP32-S2, ESP32-S3, ESP32-C3, ESP32-C6
+- License: Apache License 2.0
 
-- 5.0 or higher
-- ESP32, ESP32-S2, ESP32-S3, ESP32-C3, ESP32-C6
-- Apache License 2.0
+- GitHub Repository
+- Issue Tracker
+- Documentation
+- Examples
 
-5.0 or higher
+For questions, bug reports, or feature requests:
 
-ESP32, ESP32-S2, ESP32-S3, ESP32-C3, ESP32-C6
 
-Apache License 2.0
 
-- 
-- 
-- 
--
-
-For questions, bug reports, or feature requests: 
-
-- Open an issue on
-- Contact:
-
-Open an issue on
-
-Contact:
+- Open an issue on GitHub
+- Contact: support@whirlingbits.com
 
 Copyright (c) 2024 WhirlingBits
 

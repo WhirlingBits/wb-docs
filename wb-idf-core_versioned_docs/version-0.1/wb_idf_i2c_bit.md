@@ -33,16 +33,6 @@ ESP_OK if successful, error code otherwise
 
 This function reads a byte and returns the value of the specified bit.
 
-Handle to the I2C master device
-
-Memory address to read from
-
-Bit number to read (0-7, where 0 is LSB)
-
-Pointer to store the bit value (0 or 1)
-
-ESP_OK if successful, error code otherwise
-
 ---
 
 ### wb_i2c_master_bus_read_byte_bits
@@ -67,24 +57,6 @@ ESP_OK if successful, error code otherwise
 
 This function reads a byte and extracts a range of bits.
 
-Handle to the I2C device
-
-Memory address to read from
-
-Starting bit position (MSB of the range, 0-7)
-
-Number of bits to read (1-8)
-
-Pointer to store the extracted bits
-
-ESP_OK if successful, error code otherwise
-
-```c
-uint8_tvalue;
-//Readbits5-3(3bitsstartingatbit5)
-wb_i2c_master_bus_read_byte_bits(dev,0x10,5,3,&value);
-```
-
 ---
 
 ### wb_i2c_master_bus_write_byte_bit
@@ -107,16 +79,6 @@ esp_err_t wb_i2c_master_bus_write_byte_bit(i2c_master_dev_handle_t dev_handle, u
 ESP_OK if successful, otherwise an error code
 
 This function reads the current byte value, modifies the specified bit, and writes it back to the device.
-
-Handle to the I2C master device
-
-Memory address to write to
-
-Bit position to write (0-7, where 0 is LSB)
-
-Bit value to write (0 or 1)
-
-ESP_OK if successful, otherwise an error code
 
 ---
 
@@ -141,17 +103,5 @@ esp_err_t wb_i2c_master_bus_write_byte_bits(i2c_master_dev_handle_t dev_handle, 
 ESP_OK if successful, otherwise an error code
 
 This function reads the current byte, modifies the specified bit range, and writes it back to the device.
-
-Handle to the I2C master device
-
-Memory address to write to
-
-Starting bit position (MSB of the range, 0-7)
-
-Number of bits to write (1-8)
-
-Bit values to write
-
-ESP_OK if successful, otherwise an error code
 
 ---
