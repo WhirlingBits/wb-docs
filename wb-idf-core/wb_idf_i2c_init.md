@@ -8,28 +8,13 @@ sidebar_label: Initialization & Management
 
 Functions for I2C bus and device initialization.
 
+## Sub-Modules
+
+- [Byte Operations](./wb_idf_i2c_byte)
+- [Bit Operations](./wb_idf_i2c_bit)
+- [Word Operations (16-Bit)](./wb_idf_i2c_word)
+
 ## Functions
-
-### wb_i2c_master_bus_delete
-
-Deletes an I2C master bus handle.
-
-```c
-esp_err_t wb_i2c_master_bus_delete(i2c_master_bus_handle_t bus_handle)
-```
-
-**Parameters:**
-
-- **bus_handle** (`i2c_master_bus_handle_t`): Handle to the I2C master bus to delete
-
-**Returns:**
-
-- ESP_OK on success
-- ESP_ERR_INVALID_ARG if the handle is invalid
-
-This function deletes an I2C master bus handle and releases any resources associated with it.
-
----
 
 ### wb_i2c_master_bus_init
 
@@ -50,6 +35,28 @@ esp_err_t wb_i2c_master_bus_init(i2c_port_num_t i2c_port, gpio_num_t i2c_scl, gp
 esp_err_t Returns ESP_OK on success, or an error code if initialization fails
 
 This function initializes an I2C master bus using the provided SCL and SDA GPIO pins. It configures the bus with default clock source, internal pull-ups enabled, glitch ignore count, and uses the configuration specified by CONFIG_I2C_NUM. If the bus is already initialized or if initialization fails, it returns ESP_FAIL.
+
+---
+
+### wb_i2c_master_device_create
+
+Creates a new I2C master device handle.
+
+```c
+i2c_master_dev_handle_t wb_i2c_master_device_create(i2c_master_bus_handle_t bus_handle, uint8_t dev_addr, uint32_t clk_speed)
+```
+
+**Parameters:**
+
+- **bus_handle** (`i2c_master_bus_handle_t`): The I2C bus handle
+- **dev_addr** (`uint8_t`): The device address (7-bit)
+- **clk_speed** (`uint32_t`): The clock speed in Hz (e.g., 100000 for 100kHz)
+
+**Returns:**
+
+i2c_master_dev_handle_t The new I2C master device handle
+
+This function creates a new I2C master device handle for the specified bus and device address.
 
 ---
 
@@ -75,25 +82,24 @@ This function probes the device at the specified address on the I2C bus to deter
 
 ---
 
-### wb_i2c_master_device_create
+### wb_i2c_master_bus_delete
 
-Creates a new I2C master device handle.
+Deletes an I2C master bus handle.
 
 ```c
-i2c_master_dev_handle_t wb_i2c_master_device_create(i2c_master_bus_handle_t bus_handle, uint8_t dev_addr, uint32_t clk_speed)
+esp_err_t wb_i2c_master_bus_delete(i2c_master_bus_handle_t bus_handle)
 ```
 
 **Parameters:**
 
-- **bus_handle** (`i2c_master_bus_handle_t`): The I2C bus handle
-- **dev_addr** (`uint8_t`): The device address (7-bit)
-- **clk_speed** (`uint32_t`): The clock speed in Hz (e.g., 100000 for 100kHz)
+- **bus_handle** (`i2c_master_bus_handle_t`): Handle to the I2C master bus to delete
 
 **Returns:**
 
-i2c_master_dev_handle_t The new I2C master device handle
+- ESP_OK on success
+- ESP_ERR_INVALID_ARG if the handle is invalid
 
-This function creates a new I2C master device handle for the specified bus and device address.
+This function deletes an I2C master bus handle and releases any resources associated with it.
 
 ---
 

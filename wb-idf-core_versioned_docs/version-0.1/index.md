@@ -7,7 +7,7 @@ sidebar_label: Overview
 
 # WhirlingBits Core Components Documentation
 
-The package provides a collection of high-quality, production-ready components for ESP-IDF projects. All components follow ESP-IDF coding standards and best practices.
+The **wb-idf-core** package provides a collection of high-quality, production-ready components for ESP-IDF projects. All components follow ESP-IDF coding standards and best practices.
 
 - ✅ Production-Ready: Thoroughly tested and documented
 - ✅ ESP-IDF Native: Seamless integration with ESP-IDF
@@ -34,7 +34,7 @@ idf.pyadd-dependency"whirlingbits/wb-idf-core^1.0.0"
 
 Or add to `idf_component.yml` :
 
-```c
+```yaml
 dependencies:
 whirlingbits/wb-idf-core:"^1.0.0"
 ```
