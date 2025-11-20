@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 """
 Doxygen XML → Docusaurus Markdown Converter
-Creates clean .md files (no MDX, no JSX issues)
-FLAT STRUCTURE (no api/ subdirectories)
-FIX: Hybrid-Ansatz für Main Page (@section Support) + Listen-Deduplizierung
+FIX: Korrekte Section-Extraktion aus <sect1>-Elementen
 """
 
 import xml.etree.ElementTree as ET
@@ -47,11 +45,9 @@ class DoxygenLayoutParser:
         title = tab.get('title', '')
         url = tab.get('url', '')
         
-        # Extrahiere Group Reference
         ref_match = re.search(r'@ref\s+(\w+)', url)
         group_ref = ref_match.group(1) if ref_match else None
         
-        # Parse Sub-Tabs
         subtabs = []
         for subtab in tab.findall('tab'):
             sub_item = self._parse_tab(subtab)
@@ -72,16 +68,14 @@ class DoxygenXMLParser:
         self.xml_dir = xml_dir
         self.groups: Dict[str, Dict] = {}
         self.index_content: Optional[Dict] = None
-        self._processed_para_ids: Set[int] = set()  # Track verarbeitete <para> Elemente
+        self._processed_para_ids: Set[int] = set()
     
     def parse(self):
         """Parse alle XML Dateien"""
         print("📖 Parsing Doxygen XML...")
         
-        # Main Page
         self._parse_index()
         
-        # Groups
         group_files = list(self.xml_dir.glob("group__*.xml"))
         for xml_file in group_files:
             self._parse_group(xml_file)
@@ -99,7 +93,6 @@ class DoxygenXMLParser:
                 if compound is not None:
                     title = compound.findtext('title', 'API Documentation')
                     
-                    # Reset tracking für neue Description
                     self._processed_para_ids.clear()
                     brief = self._get_description_all(compound.find('briefdescription'))
                     
@@ -114,7 +107,7 @@ class DoxygenXMLParser:
                     return
     
     def _parse_group(self, xml_file: Path):
-        """Parse Group XML"""
+        """Parse Group XML mit Section-Support"""
         try:
             tree = ET.parse(xml_file)
             compound = tree.find('.//compounddef[@kind="group"]')
@@ -125,14 +118,13 @@ class DoxygenXMLParser:
             name = compound.findtext('compoundname', '')
             title = compound.findtext('title', name)
             
-            # Reset tracking
             self._processed_para_ids.clear()
             brief = self._get_description_direct(compound.find('briefdescription'))
             
             self._processed_para_ids.clear()
-            detailed = self._get_description_direct(compound.find('detaileddescription'))
+            # ✅ FIX: Verwende _get_description_with_sections statt _get_description_direct
+            detailed = self._get_description_with_sections(compound.find('detaileddescription'))
             
-            # Innergroups
             innergroups = []
             for ig in compound.findall('.//innergroup'):
                 innergroups.append({
@@ -140,7 +132,6 @@ class DoxygenXMLParser:
                     'name': ig.text
                 })
             
-            # Members
             functions = []
             typedefs = []
             enums = []
@@ -180,20 +171,74 @@ class DoxygenXMLParser:
         except Exception as e:
             print(f"   ⚠️  Warning: Could not parse {xml_file.name}: {e}")
     
-    def _get_description_all(self, elem) -> str:
-        """
-        Extracts description - ALLE verschachtelten <para> (für Main Page mit @section)
-        Mit Deduplizierung via Element-ID-Tracking
-        """
+    def _get_description_with_sections(self, elem) -> str:
+        """✅ NEU: Extrahiert Description MIT <sect1>-Sections"""
         if elem is None:
             return ""
         
         parts = []
-        # Alle para Elemente finden (auch verschachtelte)
+        
+        # Direkte <para> Elemente (vor den Sections)
+        for para in elem.findall('./para'):
+            para_id = id(para)
+            if para_id not in self._processed_para_ids:
+                self._processed_para_ids.add(para_id)
+                text = self._parse_para(para)
+                if text:
+                    parts.append(text)
+        
+        # ✅ <sect1> Sections verarbeiten
+        for sect1 in elem.findall('./sect1'):
+            section_parts = self._parse_section(sect1, level=2)
+            if section_parts:
+                parts.append(section_parts)
+        
+        return '\n\n'.join(parts)
+    
+    def _parse_section(self, sect_elem, level: int = 2) -> str:
+        """✅ NEU: Parse <sect1>, <sect2>, <sect3> rekursiv"""
+        parts = []
+        
+        # Section Title
+        title_elem = sect_elem.find('./title')
+        if title_elem is not None:
+            title_text = ''.join(title_elem.itertext()).strip()
+            if title_text:
+                # Markdown Heading (## für sect1, ### für sect2, etc.)
+                heading = '#' * level
+                parts.append(f"{heading} {title_text}")
+        
+        # Section Content (<para> innerhalb der Section)
+        for para in sect_elem.findall('./para'):
+            para_id = id(para)
+            if para_id not in self._processed_para_ids:
+                self._processed_para_ids.add(para_id)
+                text = self._parse_para(para)
+                if text:
+                    parts.append(text)
+        
+        # Sub-Sections (sect2, sect3, etc.) rekursiv verarbeiten
+        for subsect in sect_elem.findall('./sect2'):
+            subsection_text = self._parse_section(subsect, level=level+1)
+            if subsection_text:
+                parts.append(subsection_text)
+        
+        for subsect in sect_elem.findall('./sect3'):
+            subsection_text = self._parse_section(subsect, level=level+1)
+            if subsection_text:
+                parts.append(subsection_text)
+        
+        return '\n\n'.join(parts)
+    
+    def _get_description_all(self, elem) -> str:
+        """Extracts description - ALLE verschachtelten <para>"""
+        if elem is None:
+            return ""
+        
+        parts = []
         for para in elem.findall('.//para'):
             para_id = id(para)
             
-            # Skip wenn schon verarbeitet
             if para_id in self._processed_para_ids:
                 continue
             
@@ -206,14 +251,11 @@ class DoxygenXMLParser:
         return '\n\n'.join(parts)
     
     def _get_description_direct(self, elem) -> str:
-        """
-        Extracts description - NUR direkte <para> Kinder (für Groups)
-        """
+        """Extracts description - NUR direkte <para> Kinder"""
         if elem is None:
             return ""
         
         parts = []
-        # Nur DIREKTE para Kinder
         for para in elem.findall('./para'):
             para_id = id(para)
             
@@ -229,18 +271,31 @@ class DoxygenXMLParser:
         return '\n\n'.join(parts)
     
     def _parse_para(self, para) -> str:
-        """
-        Parse Paragraph mit Markdown-Formatierung
-        Listen werden separat behandelt
-        """
+        """Parse Paragraph mit Markdown-Formatierung"""
         result = []
         
-        # Check ob dieses Para eine Liste enthält
         has_itemizedlist = para.find('.//itemizedlist') is not None
+        has_table = para.find('.//table') is not None
+        has_programlisting = para.find('.//programlisting') is not None
         
+        # ✅ Tabellen verarbeiten
+        if has_table:
+            if para.text and para.text.strip():
+                result.append(para.text.strip())
+            
+            for child in para:
+                if child.tag == 'table':
+                    table_md = self._parse_table(child)
+                    if table_md:
+                        result.append('\n\n' + table_md + '\n')
+                
+                if child.tail and child.tail.strip():
+                    result.append(child.tail.strip())
+            
+            return '\n\n'.join(result).strip()
+        
+        # Itemized Lists
         if has_itemizedlist:
-            # Paragraph enthält Liste -> NUR die Liste ausgeben
-            # Text DAVOR und DANACH
             if para.text and para.text.strip():
                 result.append(para.text.strip())
             
@@ -248,7 +303,6 @@ class DoxygenXMLParser:
                 if child.tag == 'itemizedlist':
                     items = []
                     for listitem in child.findall('.//listitem'):
-                        # Markiere listitem para als verarbeitet
                         listitem_para = listitem.find('.//para')
                         if listitem_para is not None:
                             self._processed_para_ids.add(id(listitem_para))
@@ -260,13 +314,41 @@ class DoxygenXMLParser:
                     if items:
                         result.append('\n\n' + '\n'.join(items) + '\n')
                 
-                # Text nach dem Child
                 if child.tail and child.tail.strip():
                     result.append(child.tail.strip())
             
             return '\n\n'.join(result).strip()
         
-        # Normaler Paragraph ohne Liste
+        # Code Blocks
+        if has_programlisting:
+            if para.text and para.text.strip():
+                result.append(para.text.strip())
+            
+            for child in para:
+                if child.tag == 'programlisting':
+                    code_lines = []
+                    for codeline in child.findall('.//codeline'):
+                        line = ''.join(codeline.itertext())
+                        code_lines.append(line)
+                    code_block = '\n'.join(code_lines)
+                    
+                    # Detect language from filename attribute
+                    lang = 'c'
+                    if child.get('filename'):
+                        filename = child.get('filename')
+                        if filename.endswith('.yml') or filename.endswith('.yaml'):
+                            lang = 'yaml'
+                        elif filename.endswith('.txt'):
+                            lang = 'text'
+                    
+                    result.append(f"\n\n```{lang}\n{code_block}\n```\n")
+                
+                if child.tail and child.tail.strip():
+                    result.append(child.tail.strip())
+            
+            return '\n\n'.join(result).strip()
+        
+        # Normal Text mit Inline-Elementen
         if para.text and para.text.strip():
             result.append(para.text.strip())
         
@@ -279,16 +361,15 @@ class DoxygenXMLParser:
                 code = ''.join(child.itertext())
                 result.append(f"`{code}`")
             
-            elif child.tag == 'programlisting':
-                code_lines = []
-                for codeline in child.findall('.//codeline'):
-                    line = ''.join(codeline.itertext())
-                    code_lines.append(line)
-                code_block = '\n'.join(code_lines)
-                result.append(f"\n\n```c\n{code_block}\n```\n")
+            elif child.tag == 'bold':
+                text = ''.join(child.itertext())
+                result.append(f"**{text}**")
+            
+            elif child.tag == 'emphasis':
+                text = ''.join(child.itertext())
+                result.append(f"*{text}*")
             
             elif child.tag == 'simplesect':
-                # Handle @section, @subsection etc.
                 kind = child.get('kind', '')
                 if kind in ['note', 'warning', 'see']:
                     sect_title = kind.capitalize()
@@ -301,8 +382,49 @@ class DoxygenXMLParser:
         
         return ' '.join(filter(None, result)).strip()
     
+    def _parse_table(self, table_elem) -> str:
+        """✅ NEU: Parse <table> zu Markdown Table"""
+        rows = []
+        
+        for row_elem in table_elem.findall('.//row'):
+            cells = []
+            for entry in row_elem.findall('./entry'):
+                # Extract cell content
+                cell_parts = []
+                for para in entry.findall('.//para'):
+                    text = ''.join(para.itertext()).strip()
+                    if text:
+                        cell_parts.append(text)
+                
+                cell_text = ' '.join(cell_parts) if cell_parts else ''
+                cells.append(cell_text)
+            
+            if cells:
+                rows.append(cells)
+        
+        if not rows:
+            return ""
+        
+        # Build Markdown Table
+        md_lines = []
+        
+        # Header row
+        if rows:
+            header = rows[0]
+            md_lines.append('| ' + ' | '.join(header) + ' |')
+            md_lines.append('|' + '|'.join(['---' for _ in header]) + '|')
+            
+            # Data rows
+            for row in rows[1:]:
+                # Pad row if needed
+                while len(row) < len(header):
+                    row.append('')
+                md_lines.append('| ' + ' | '.join(row) + ' |')
+        
+        return '\n'.join(md_lines)
+    
     def _parse_simplesect(self, simplesect) -> str:
-        """Parse simplesect (note, warning, etc.)"""
+        """Parse simplesect"""
         parts = []
         for para in simplesect.findall('.//para'):
             para_id = id(para)
@@ -314,28 +436,20 @@ class DoxygenXMLParser:
         return ' '.join(parts)
     
     def _extract_text_only(self, elem) -> str:
-        """
-        Extrahiert NUR den Text aus einem Element (keine Formatierung).
-        Verwendet für Listen-Items.
-        """
+        """Extrahiert NUR Text"""
         text_parts = []
         
-        # Finde das para Element im listitem
         para = elem.find('.//para')
         if para is None:
             return ""
         
-        # Initial text
         if para.text and para.text.strip():
             text_parts.append(para.text.strip())
         
-        # Verarbeite Children
         for child in para:
-            # Child text
             if child.text and child.text.strip():
                 text_parts.append(child.text.strip())
             
-            # Tail text
             if child.tail and child.tail.strip():
                 text_parts.append(child.tail.strip())
         
@@ -354,14 +468,12 @@ class DoxygenXMLParser:
             self._processed_para_ids.clear()
             detailed = self._get_description_direct(elem.find('detaileddescription'))
             
-            # Parameters
             params = []
             for param in elem.findall('.//param'):
                 param_type_elem = param.find('type')
                 param_type = ''.join(param_type_elem.itertext()) if param_type_elem is not None else ''
                 param_name = param.findtext('declname', '')
                 
-                # Parameter Description
                 param_desc = ''
                 for paramlist in elem.findall('.//parameterlist[@kind="param"]'):
                     for paramitem in paramlist.findall('parameteritem'):
@@ -376,7 +488,6 @@ class DoxygenXMLParser:
                     'description': param_desc
                 })
             
-            # Return Description
             return_desc = ''
             for simplesect in elem.findall('.//simplesect[@kind="return"]'):
                 self._processed_para_ids.clear()
@@ -439,32 +550,29 @@ class DoxygenXMLParser:
             return None
 
 class DocusaurusMarkdownGenerator:
-    """Generiert sauberes Docusaurus Markdown - FLACHE STRUKTUR"""
+    """Generiert Docusaurus Markdown"""
     
     def __init__(self, output_dir: Path):
         self.output_dir = output_dir
     
     def generate(self, navigation: List[Dict], groups: Dict, index_content: Optional[Dict]):
-        """Generiere alle Markdown-Dateien - DIREKT im output_dir (FLACH)"""
+        """Generiere Markdown-Dateien"""
         print("📝 Generating Docusaurus Markdown...")
 
         self.output_dir.mkdir(parents=True, exist_ok=True)
         
-        # Index
         if index_content:
             self._write_index(index_content, navigation, groups)
         
-        # Groups (DIRECTLY in output_dir)
         for group_name, group_data in groups.items():
             self._write_group(group_name, group_data)
 
-        # Sidebars Config
         self._write_sidebars(navigation, groups)
         
         print(f"   ✅ Generated {len(groups) + 1} Markdown files")
     
     def _write_index(self, index_content: Dict, navigation: List[Dict], groups: Dict):
-        """Schreibe index.md - DIREKT im output_dir"""
+        """Schreibe index.md"""
         lines = [
             "---",
             "id: index",
@@ -483,7 +591,6 @@ class DocusaurusMarkdownGenerator:
         if index_content['detailed']:
             lines.extend([index_content['detailed'], ""])
         
-        # Component Overview
         lines.extend(["## Components", ""])
         for nav in navigation:
             if nav.get('group_ref') and nav['group_ref'] in groups:
@@ -500,7 +607,7 @@ class DocusaurusMarkdownGenerator:
         print(f"   ✅ index.md")
     
     def _write_group(self, name: str, data: Dict):
-        """Schreibe Group Markdown - DIREKT im output_dir"""
+        """Schreibe Group Markdown"""
         lines = [
             "---",
             f"id: {name}",
@@ -522,8 +629,13 @@ class DocusaurusMarkdownGenerator:
         if data['innergroups']:
             lines.extend(["## Sub-Modules", ""])
             for ig in data['innergroups']:
+                ig_refid = ig['refid']
                 ig_name = ig['name']
-                lines.append(f"- [{ig_name}](./{ig_name})")
+                
+                group_id = ig_refid.replace('group__', '').replace('__', '_')
+                display_name = ig_name.replace('wb_idf_i2c_', '').replace('_', ' ').title()
+                
+                lines.append(f"- [{display_name}](./{group_id})")
             lines.append("")
         
         # Typedefs
@@ -609,7 +721,7 @@ class DocusaurusMarkdownGenerator:
         print(f"   ✅ {name}.md")
     
     def _write_sidebars(self, navigation: List[Dict], groups: Dict):
-        """Generiere sidebars.json - DIREKT im output_dir"""
+        """Generiere sidebars.json"""
         sidebar_items = [
             {
                 'type': 'doc',
@@ -631,7 +743,6 @@ class DocusaurusMarkdownGenerator:
                     'items': [nav['group_ref']]
                 }
                 
-                # Sub-Tabs
                 for sub in nav.get('subtabs', []):
                     if sub.get('group_ref') and sub['group_ref'] in groups:
                         category['items'].append(sub['group_ref'])
@@ -665,9 +776,8 @@ def main():
         print(f"❌ Error: {xml_dir} not found. Run 'doxygen Doxyfile' first!")
         return 1
     
-    print(f"\n🚀 Converting Doxygen to Docusaurus Markdown (FIX: Hybrid + Tracking)\n")
+    print(f"\n🚀 Converting Doxygen to Docusaurus Markdown (with Section support)\n")
     
-    # Parse Layout (optional)
     navigation = []
     if args.layout:
         layout_file = Path(args.layout)
@@ -676,17 +786,14 @@ def main():
             navigation = layout_parser.parse_navigation()
             print(f"✅ Parsed navigation from {layout_file.name}\n")
     
-    # Parse XML
     xml_parser = DoxygenXMLParser(xml_dir)
     xml_parser.parse()
     
-    # Generate Markdown (FLAT STRUCTURE)
     generator = DocusaurusMarkdownGenerator(output_dir)
     generator.generate(navigation, xml_parser.groups, xml_parser.index_content)
     
     print(f"\n✅ Done! Markdown files in {output_dir}/")
-    print(f"   sidebars.json in {output_dir}/")
-    print(f"   ✂️  Fixed: Hybrid approach (@section support + deduplication)")
+    print(f"   ✅ Section extraction enabled")
     
     return 0
 
