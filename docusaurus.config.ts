@@ -322,6 +322,7 @@ const config: Config = {
   ],
 
   plugins: docsPlugins,
+  themes: ['@docusaurus/theme-mermaid'],
 
   markdown: {
     mermaid: true,
@@ -358,7 +359,6 @@ const config: Config = {
         src: 'img/Whirlingbits_logo.png',
       },
       items: [
-        // 🔥 Top-Level repositories (direct links)
         ...repositories
           .filter(repo => repo.displayMode === 'toplevel')
           .map(repo => {
@@ -371,8 +371,6 @@ const config: Config = {
               position: 'left' as const,
             };
           }),
-        
-        // 🔥 Category dropdowns (grouped repos)
         ...categories
           .map(category => {
             const categoryRepos = reposByCategory[category.id] || [];
@@ -397,8 +395,6 @@ const config: Config = {
             };
           })
           .filter((item): item is NonNullable<typeof item> => item !== null),
-        
-        // 🔥 Version dropdowns (per repo)
         ...repositories
           .map(repo => {
             const versions = loadVersionsForRepo(repo.id);
@@ -444,8 +440,6 @@ const config: Config = {
             };
           })
           .filter((item): item is NonNullable<typeof item> => item !== null),
-        
-        // 🔥 GitHub link
         {
           href: `https://github.com/${settings.branding.organizationName}`,
           label: 'GitHub',
