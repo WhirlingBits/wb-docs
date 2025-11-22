@@ -36,29 +36,16 @@ This driver is designed for production use with focus on:
 
 The driver follows a layered architecture:
 
-```text
-┌─────────────────────────────────────┐
-│ApplicationLayer│
-│(Yoursensor/devicedrivers)│
-└──────────────┬──────────────────────┘
-│
-┌──────────────▼──────────────────────┐
-│wb-idf-i2cHigh-LevelAPI│←ThisComponent
-├─────────────────────────────────────┤
-│•DeviceManagement│
-│•Byte/Bit/WordOperations│
-│•ErrorHandling&Validation│
-└──────────────┬──────────────────────┘
-│
-┌──────────────▼──────────────────────┐
-│ESP-IDFI2CMasterDriver│
-│(driver/i2c_master.h)│
-└──────────────┬──────────────────────┘
-│
-┌──────────────▼──────────────────────┐
-│I2CHardwarePeripheral│
-│(ESP32I2CController)│
-└─────────────────────────────────────┘
+```mermaid
+graph TD
+    A[Application Layer]
+    B[wb-idf-i2c API]
+    C[ESP-IDF I2C Driver]
+    D[I2C Hardware]
+    A --> B
+    B --> C
+    C --> D
+    style B fill:#25C2A0,stroke:none
 ```
 
 ## API Modules
@@ -147,17 +134,17 @@ Key functions:
 
 Add to your project's `idf_component.yml` :
 
-```yaml
+```c
 dependencies:
-whirlingbits/wb-idf-i2c:
-version:"^1.0.0"
+  whirlingbits/wb-idf-i2c:
+    version: "^1.0.0"
 ```
 
 **Option 2: Git Submodule**
 
 ```c
-cdcomponents
-gitsubmoduleaddhttps://github.com/WhirlingBits/wb-idf-core.git
+cd components
+git submodule add https://github.com/WhirlingBits/wb-idf-core.git
 ```
 
 **Option 3: Manual Copy**
@@ -167,44 +154,44 @@ Copy the `wb-idf-i2c` folder to your project's `components/` directory.
 ### Basic Usage Example
 
 ```c
-#include"wb-idf-i2c.h"
+#include "wb-idf-i2c.h"
 
-//1.InitializetheI2Cbus
-i2c_master_bus_handle_tbus_handle;
-esp_err_tret=wb_i2c_master_bus_init(
-I2C_NUM_0,//I2Cport
-GPIO_NUM_22,//SCLpin
-GPIO_NUM_21//SDApin
+// 1. Initialize the I2C bus
+i2c_master_bus_handle_t bus_handle;
+esp_err_t ret = wb_i2c_master_bus_init(
+    I2C_NUM_0,        // I2C port
+    GPIO_NUM_22,      // SCL pin
+    GPIO_NUM_21       // SDA pin
 );
 
-if(ret!=ESP_OK){
-ESP_LOGE(TAG,"I2Cbusinitfailed:%s",esp_err_to_name(ret));
-return;
+if (ret != ESP_OK) {
+    ESP_LOGE(TAG, "I2C bus init failed: %s", esp_err_to_name(ret));
+    return;
 }
 
-//2.Createadevicehandle(e.g.,forEEPROMataddress0x50)
-i2c_master_dev_handle_teeprom_dev=wb_i2c_master_device_create(
-bus_handle,
-0x50,//Deviceaddress(7-bit)
-100000//Clockspeed(100kHz)
+// 2. Create a device handle (e.g., for EEPROM at address 0x50)
+i2c_master_dev_handle_t eeprom_dev = wb_i2c_master_device_create(
+    bus_handle,
+    0x50,         // Device address (7-bit)
+    100000        // Clock speed (100kHz)
 );
 
-//3.Checkifdeviceispresent
-ret=wb_i2c_master_bus_probe_device(bus_handle,0x50,1000);
-if(ret==ESP_OK){
-ESP_LOGI(TAG,"Devicefoundat0x50");
+// 3. Check if device is present
+ret = wb_i2c_master_bus_probe_device(bus_handle, 0x50, 1000);
+if (ret == ESP_OK) {
+    ESP_LOGI(TAG, "Device found at 0x50");
 }
 
-//4.Writeabyte
-uint8_tdata=0xAB;
-ret=wb_i2c_master_bus_write_byte(eeprom_dev,0x00,data);
+// 4. Write a byte
+uint8_t data = 0xAB;
+ret = wb_i2c_master_bus_write_byte(eeprom_dev, 0x00, data);
 
-//5.Readabyte
-uint8_tread_data;
-ret=wb_i2c_master_bus_read_byte(eeprom_dev,0x00,&read_data);
-ESP_LOGI(TAG,"Read:0x%02X",read_data);
+// 5. Read a byte
+uint8_t read_data;
+ret = wb_i2c_master_bus_read_byte(eeprom_dev, 0x00, &read_data);
+ESP_LOGI(TAG, "Read: 0x%02X", read_data);
 
-//6.Cleanup
+// 6. Cleanup
 wb_i2c_master_device_delete(eeprom_dev);
 wb_i2c_master_bus_delete(bus_handle);
 ```
@@ -213,17 +200,47 @@ wb_i2c_master_bus_delete(bus_handle);
 
 ### Typical Wiring
 
-```text
-ESP32PinI2CDevicePinPull-up
-──────────────────────────────
-GPIO21(SDA)──────┬───────SDA
-│4.7kΩto3.3V
-
-GPIO22(SCL)──────┬───────SCL
-│4.7kΩto3.3V
-
-3.3V──────────────┴───────VCC
-GND────────────────────────GND
+```mermaid
+graph TD
+    %% Styling Definitions
+    classDef mcu fill:#e1f5fe,stroke:#01579b,stroke-width:2px,color:#01579b
+    classDef device fill:#f3e5f5,stroke:#4a148c,stroke-width:2px,color:#4a148c
+    classDef power fill:#ffebee,stroke:#b71c1c,stroke-width:1px,color:#b71c1c
+    classDef resistor fill:#fff,stroke:#333,stroke-width:1px,stroke-dasharray: 5 5
+    classDef bus fill:none,stroke:#333,stroke-width:3px
+    subgraph Board [ESP32 Board]
+        direction TB
+        ESP_3V3((3.3V)):::power
+        ESP_GND((GND)):::power
+        ESP_SDA[GPIO 21 / SDA]:::mcu
+        ESP_SCL[GPIO 22 / SCL]:::mcu
+    end
+    subgraph I2C_Bus [I2C Bus Lines]
+        direction TB
+        R_SDA[4.7kΩ Pull-up]:::resistor
+        R_SCL[4.7kΩ Pull-up]:::resistor
+    end
+    subgraph Sensor [I2C Device]
+        direction TB
+        DEV_VCC((VCC)):::power
+        DEV_GND((GND)):::power
+        DEV_SDA[SDA]:::device
+        DEV_SCL[SCL]:::device
+    end
+    %% Power Connections
+    ESP_3V3 --> DEV_VCC
+    ESP_GND --> DEV_GND
+    %% Pull-up Connections
+    ESP_3V3 --- R_SDA
+    ESP_3V3 --- R_SCL
+    %% Signal Connections
+    ESP_SDA === R_SDA
+    R_SDA === DEV_SDA
+    ESP_SCL === R_SCL
+    R_SCL === DEV_SCL
+    linkStyle 0,1 stroke:#b71c1c,stroke-width:1px
+    linkStyle 2,3 stroke:#b71c1c,stroke-width:1px,stroke-dasharray: 2 2
+    linkStyle 4,5,6,7 stroke:#333,stroke-width:3px
 ```
 
 **Pull-up Resistor Guidelines:**
@@ -260,13 +277,13 @@ Complete, runnable examples are available in the `examples/` directory:
 Scans all I2C addresses (0x00-0x7F) to detect connected devices:
 
 ```c
-//examples/i2c_scanner/main.c
+// examples/i2c_scanner/main.c
 
-for(uint8_taddr=0x00;addr<0x80;addr++){
-esp_err_tret=wb_i2c_master_bus_probe_device(bus_handle,addr,100);
-if(ret==ESP_OK){
-printf("Devicefoundataddress0x%02X\n",addr);
-}
+for (uint8_t addr = 0x00; addr < 0x80; addr++) {
+    esp_err_t ret = wb_i2c_master_bus_probe_device(bus_handle, addr, 100);
+    if (ret == ESP_OK) {
+        printf("Device found at address 0x%02X\n", addr);
+    }
 }
 ```
 
@@ -275,16 +292,16 @@ printf("Devicefoundataddress0x%02X\n",addr);
 Reading and writing to an AT24C32 EEPROM:
 
 ```c
-//examples/eeprom_readwrite/main.c
+// examples/eeprom_readwrite/main.c
 
-//Writedata
-uint8_twrite_data[]="HelloI2C!";
-wb_i2c_master_bus_write_multiple_bytes(dev,0x00,write_data,sizeof(write_data));
+// Write data
+uint8_t write_data[] = "Hello I2C!";
+wb_i2c_master_bus_write_multiple_bytes(dev, 0x00, write_data, sizeof(write_data));
 
-//Readback
-uint8_tread_data[32];
-wb_i2c_master_bus_read_multiple_bytes(dev,0x00,read_data,sizeof(write_data));
-printf("Read:%s\n",read_data);
+// Read back
+uint8_t read_data[32];
+wb_i2c_master_bus_read_multiple_bytes(dev, 0x00, read_data, sizeof(write_data));
+printf("Read: %s\n", read_data);
 ```
 
 ### Sensor Polling (MPU6050)
@@ -292,18 +309,18 @@ printf("Read:%s\n",read_data);
 Continuously reading accelerometer data:
 
 ```c
-//examples/mpu6050_read/main.c
+// examples/mpu6050_read/main.c
 
-while(1){
-uint8_taccel_data[6];
-wb_i2c_master_bus_read_multiple_bytes(dev,0x3B,accel_data,6);
-
-int16_taccel_x=(accel_data[0]<<8)|accel_data[1];
-int16_taccel_y=(accel_data[2]<<8)|accel_data[3];
-int16_taccel_z=(accel_data[4]<<8)|accel_data[5];
-
-printf("Accel:X=%dY=%dZ=%d\n",accel_x,accel_y,accel_z);
-vTaskDelay(pdMS_TO_TICKS(100));
+while (1) {
+    uint8_t accel_data[6];
+    wb_i2c_master_bus_read_multiple_bytes(dev, 0x3B, accel_data, 6);
+    
+    int16_t accel_x = (accel_data[0] << 8) | accel_data[1];
+    int16_t accel_y = (accel_data[2] << 8) | accel_data[3];
+    int16_t accel_z = (accel_data[4] << 8) | accel_data[5];
+    
+    printf("Accel: X=%d Y=%d Z=%d\n", accel_x, accel_y, accel_z);
+    vTaskDelay(pdMS_TO_TICKS(100));
 }
 ```
 
@@ -380,8 +397,8 @@ I2C bus or device not properly initialized.
 **Enable Debug Logging:**
 
 ```c
-esp_log_level_set("i2c",ESP_LOG_DEBUG);
-esp_log_level_set("wb_i2c",ESP_LOG_DEBUG);
+esp_log_level_set("i2c", ESP_LOG_DEBUG);
+esp_log_level_set("wb_i2c", ESP_LOG_DEBUG);
 ```
 
 **Use I2C Scanner:**
@@ -389,8 +406,8 @@ esp_log_level_set("wb_i2c",ESP_LOG_DEBUG);
 Run the included `i2c_scanner` example to detect all devices:
 
 ```c
-cdexamples/i2c_scanner
-idf.pybuildflashmonitor
+cd examples/i2c_scanner
+idf.py build flash monitor
 ```
 
 - START condition present
@@ -405,22 +422,22 @@ idf.pybuildflashmonitor
 If the bus is stuck (SDA or SCL held low):
 
 ```c
-//1.PowercycletheI2Cdevice(ifpossible)
+// 1. Power cycle the I2C device (if possible)
 
-//2.SendclockpulsestoreleaseSDA
-gpio_set_direction(GPIO_NUM_22,GPIO_MODE_OUTPUT);
-gpio_set_level(GPIO_NUM_21,1);//SDAhigh
+// 2. Send clock pulses to release SDA
+gpio_set_direction(GPIO_NUM_22, GPIO_MODE_OUTPUT);
+gpio_set_level(GPIO_NUM_21, 1); // SDA high
 
-for(inti=0;i<9;i++){
-gpio_set_level(GPIO_NUM_22,0);
-vTaskDelay(1);
-gpio_set_level(GPIO_NUM_22,1);
-vTaskDelay(1);
+for (int i = 0; i < 9; i++) {
+    gpio_set_level(GPIO_NUM_22, 0);
+    vTaskDelay(1);
+    gpio_set_level(GPIO_NUM_22, 1);
+    vTaskDelay(1);
 }
 
-//3.Re-initializeI2Cbus
+// 3. Re-initialize I2C bus
 wb_i2c_master_bus_delete(bus_handle);
-wb_i2c_master_bus_init(I2C_NUM_0,GPIO_NUM_22,GPIO_NUM_21);
+wb_i2c_master_bus_init(I2C_NUM_0, GPIO_NUM_22, GPIO_NUM_21);
 ```
 
 ## Best Practices
@@ -430,10 +447,10 @@ wb_i2c_master_bus_init(I2C_NUM_0,GPIO_NUM_22,GPIO_NUM_21);
 Always check return values:
 
 ```c
-esp_err_tret=wb_i2c_master_bus_write_byte(dev,0x10,0xFF);
-if(ret!=ESP_OK){
-ESP_LOGE(TAG,"Writefailed:%s",esp_err_to_name(ret));
-//Handleerror(retry,resetdevice,notifyuser,etc.)
+esp_err_t ret = wb_i2c_master_bus_write_byte(dev, 0x10, 0xFF);
+if (ret != ESP_OK) {
+    ESP_LOGE(TAG, "Write failed: %s", esp_err_to_name(ret));
+    // Handle error (retry, reset device, notify user, etc.)
 }
 ```
 
@@ -442,20 +459,20 @@ ESP_LOGE(TAG,"Writefailed:%s",esp_err_to_name(ret));
 The driver uses internal mutexes for thread safety. Multiple tasks can safely access the same I2C bus concurrently:
 
 ```c
-//Task1
-voidsensor1_task(void*arg){
-while(1){
-wb_i2c_master_bus_read_byte(dev1,0x00,&data);
-vTaskDelay(100);
-}
+// Task 1
+void sensor1_task(void *arg) {
+    while (1) {
+        wb_i2c_master_bus_read_byte(dev1, 0x00, &data);
+        vTaskDelay(100);
+    }
 }
 
-//Task2-safetorunconcurrently
-voidsensor2_task(void*arg){
-while(1){
-wb_i2c_master_bus_read_byte(dev2,0x00,&data);
-vTaskDelay(100);
-}
+// Task 2 - safe to run concurrently
+void sensor2_task(void *arg) {
+    while (1) {
+        wb_i2c_master_bus_read_byte(dev2, 0x00, &data);
+        vTaskDelay(100);
+    }
 }
 ```
 
@@ -464,13 +481,13 @@ vTaskDelay(100);
 Always clean up resources:
 
 ```c
-//Createresources
+// Create resources
 wb_i2c_master_bus_init(...);
-dev_handle=wb_i2c_master_device_create(...);
+dev_handle = wb_i2c_master_device_create(...);
 
-//Useresources...
+// Use resources...
 
-//Cleanupbeforeexit
+// Clean up before exit
 wb_i2c_master_device_delete(dev_handle);
 wb_i2c_master_bus_delete(bus_handle);
 ```
@@ -482,8 +499,8 @@ The component includes comprehensive unit tests and integration tests.
 **Run Unit Tests:**
 
 ```c
-cdtest/wb_idf_i2c_test
-idf.pybuildflashmonitor
+cd test/wb_idf_i2c_test
+idf.py build flash monitor
 ```
 
 - Bus initialization with various configurations
@@ -514,7 +531,16 @@ For detailed function documentation, see:
 
 Copyright (c) 2024 WhirlingBits
 
-Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License. You may obtain a copy of the License at Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License. You may obtain a copy of the License at
+
+
+```
+http://www.apache.org/licenses/LICENSE-2.0
+
+```
+
+
+Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 
 ## Support & Contributing
 

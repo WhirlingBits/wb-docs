@@ -38,6 +38,29 @@ The **wb-idf-i2c** component provides a high-level, easy-to-use interface for I2
 
 The component follows a layered architecture:
 
+```
+* ┌─────────────────────────────────────┐
+* │      Your Application               │
+* └──────────────┬──────────────────────┘
+*                │
+* ┌──────────────▼──────────────────────┐
+* │  wb-idf-i2c High-Level API          │ ← This Component
+* ├─────────────────────────────────────┤
+* │  - Device Management                │
+* │  - Byte/Bit/Word Operations         │
+* │  - Error Handling                   │
+* └──────────────┬──────────────────────┘
+*                │
+* ┌──────────────▼──────────────────────┐
+* │  ESP-IDF I2C Master Driver          │
+* └──────────────┬──────────────────────┘
+*                │
+* ┌──────────────▼──────────────────────┐
+* │  I2C Hardware (ESP32 Peripheral)    │
+* └─────────────────────────────────────┘
+* 
+```
+
 ## API Modules
 
 The I2C API is organized into the following functional modules. Click on each module to see the detailed API documentation:
@@ -65,6 +88,24 @@ For detailed API documentation and code examples, see the individual module page
 ## Hardware Setup
 
 ### Typical Wiring
+
+```
+* ESP32                     I2C Device
+* ┌────────┐               ┌────────┐
+* │  SCL   │───────────────│  SCL   │
+* │  (22)  │    ┌─[4.7kΩ]─│        │
+* │        │    │          │        │
+* │  SDA   │────┼──────────│  SDA   │
+* │  (21)  │    │ ┌─[4.7kΩ]│        │
+* │        │    │ │        │        │
+* │  GND   │────┼─┼────────│  GND   │
+* │        │    │ │        │        │
+* │  3.3V  │────┴─┴────────│  VCC   │
+* └────────┘               └────────┘
+* 
+* Pull-up Resistors: 4.7kΩ typical (range: 2.2kΩ - 10kΩ)
+* 
+```
 
 ### Requirements
 

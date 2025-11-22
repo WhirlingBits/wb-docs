@@ -29,30 +29,30 @@ The **wb-idf-core** package provides a collection of high-quality, production-re
 Add to your ESP-IDF project using the component manager:
 
 ```c
-idf.pyadd-dependency"whirlingbits/wb-idf-core^1.0.0"
+idf.py add-dependency "whirlingbits/wb-idf-core^1.0.0"
 ```
 
 Or add to `idf_component.yml` :
 
-```yaml
+```c
 dependencies:
-whirlingbits/wb-idf-core:"^1.0.0"
+  whirlingbits/wb-idf-core: "^1.0.0"
 ```
 
 ```c
-#include"wb_idf_i2c.h"
+#include "wb_idf_i2c.h"
 
-//InitializeI2Cbus
-i2c_master_bus_handle_tbus_handle;
-wb_i2c_master_bus_init(I2C_NUM_0,GPIO_NUM_21,GPIO_NUM_22,100000,&bus_handle);
+// Initialize I2C bus
+i2c_master_bus_handle_t bus_handle;
+wb_i2c_master_bus_init(I2C_NUM_0, GPIO_NUM_21, GPIO_NUM_22, 100000, &bus_handle);
 
-//Adddevice
-i2c_master_dev_handle_tdev_handle;
-wb_i2c_master_bus_add_device(bus_handle,0x3C,&dev_handle);
+// Add device
+i2c_master_dev_handle_t dev_handle;
+wb_i2c_master_bus_add_device(bus_handle, 0x3C, &dev_handle);
 
-//Writedata
-uint8_tdata[]={0x00,0x01,0x02};
-wb_i2c_master_byte_write(dev_handle,0x00,data,sizeof(data));
+// Write data
+uint8_t data[] = {0x00, 0x01, 0x02};
+wb_i2c_master_byte_write(dev_handle, 0x00, data, sizeof(data));
 ```
 
 Browse the complete API documentation by module:
