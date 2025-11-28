@@ -130,24 +130,14 @@ Key functions:
 
 ### Installation
 
-**Option 1: Component Manager (Recommended)**
-
-Add to your project's `idf_component.yml` :
-
-```c
-dependencies:
-  whirlingbits/wb-idf-i2c:
-    version: "^1.0.0"
-```
-
-**Option 2: Git Submodule**
+**Option 1: Git Submodule**
 
 ```c
 cd components
 git submodule add https://github.com/WhirlingBits/wb-idf-core.git
 ```
 
-**Option 3: Manual Copy**
+**Option 2: Manual Copy**
 
 Copy the `wb-idf-i2c` folder to your project's `components/` directory.
 
@@ -535,7 +525,7 @@ Licensed under the Apache License, Version 2.0 (the "License"); you may not use 
 
 
 ```
-http://www.apache.org/licenses/LICENSE-2.0
+[http://www.apache.org/licenses/LICENSE-2.0](http://www.apache.org/licenses/LICENSE-2.0)
 
 ```
 
@@ -546,7 +536,6 @@ Unless required by applicable law or agreed to in writing, software distributed 
 
 - GitHub Issues
 - Discussions
-- Email: support@whirlingbits.com
 
 - Pull requests are welcome!
 - See CONTRIBUTING.md for guidelines
@@ -554,7 +543,7 @@ Unless required by applicable law or agreed to in writing, software distributed 
 - Add tests for new features
 
 - WhirlingBits Team
-- https://whirlingbits.com
+- https://whirlingbits.de
 
 ## Sub-Modules
 
