@@ -441,6 +441,11 @@ const config: Config = {
           })
           .filter((item): item is NonNullable<typeof item> => item !== null),
         {
+          href: 'https://whirlingbits.de',
+          label: 'Website',
+          position: 'right',
+        },
+        {
           href: `https://github.com/${settings.branding.organizationName}`,
           label: 'GitHub',
           position: 'right',
