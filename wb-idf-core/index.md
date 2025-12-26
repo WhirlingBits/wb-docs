@@ -80,3 +80,7 @@ Copyright (c) 2024 WhirlingBits
 Licensed under the Apache License, Version 2.0. See LICENSE file in the project root for details.
 
 ## Components
+
+### [I2C Master Driver](./wb_idf_i2c)
+
+Advanced I2C Master functionality for ESP-IDF.
