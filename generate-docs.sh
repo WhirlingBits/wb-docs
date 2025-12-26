@@ -566,7 +566,10 @@ generate_sidebar_from_markdown() {
 EOF
     
     if [ ${#md_files[@]} -gt 0 ]; then
-        cat >> "$sidebar_file" << 'EOF'
+        if [ "$use_doxygen_layout" = true ]; then
+            echo "," >> "$sidebar_file"
+        else
+            cat >> "$sidebar_file" << 'EOF'
 ,
     {
       "type": "category",
@@ -574,131 +577,139 @@ EOF
       "collapsed": false,
       "items": [
 EOF
+        fi
         
         if [ "$use_doxygen_layout" = true ]; then
-            echo_debug "Parsing DoxygenLayout.xml for sidebar structure..."
-
-            local sidebar_items=()
-            local used_files=()
+            echo
+            export TARGET_DIR="$target_dir"
+            export LAYOUT_FILE="$layout_file"
             
-            while IFS='|' read -r group_ref group_title has_subtabs; do
-                [[ "$group_ref" == "ERROR" ]] && continue
-
-                local found_md=false
-                for md_file in "${md_files[@]}"; do
-                    if [[ "$md_file" == *"$group_ref"* ]] || [[ "$md_file" == "$group_ref" ]]; then
-                        found_md=true
-
-                        local label="$group_title"
-                        if [ -f "$target_dir/$md_file.md" ] && [ -z "$group_title" ]; then
-                            local frontmatter_label=$(sed -n '/^---$/,/^---$/p' "$target_dir/$md_file.md" | grep '^title:' | sed 's/^title: *//' | sed 's/^["'\'']//' | sed 's/["'\'']$//')
-                            [ -n "$frontmatter_label" ] && label="$frontmatter_label"
-                        fi
-                        
-                        if [ -z "$label" ] || [ "$label" = "$group_ref" ]; then
-                            label=$(echo "$md_file" | sed 's/wb_idf_//' | sed 's/_/ /g' | sed 's/\b\(.\)/\u\1/g')
-                        fi
-
-                        sidebar_items+=("$md_file|$label")
-                        used_files+=("$md_file")
-                        break
-                    fi
-                done
-                
-                if [ "$found_md" = false ]; then
-                    echo_debug "  Warning: No MD file found for group reference '$group_ref'"
-                fi
-            done < <(python3 << PYTHON_EOF
+            python3 << 'PYTHON_EOF' >> "$sidebar_file"
 import xml.etree.ElementTree as ET
 import sys
+import os
+import re
+import json
+
+target_dir = os.environ['TARGET_DIR']
+layout_file = os.environ['LAYOUT_FILE']
+
+md_files = []
+try:
+    for f in os.listdir(target_dir):
+        if f.endswith('.md') or f.endswith('.mdx'):
+            basename = os.path.splitext(f)[0]
+            if basename not in ['index', 'versions']:
+                md_files.append(basename)
+    md_files.sort()
+except Exception as e:
+    sys.stderr.write(f"Error listing dir: {e}\n")
+
+used_files = set()
+sidebar_items = []
+
+def get_frontmatter_title(file_path):
+    try:
+        with open(file_path, 'r') as f:
+            lines = f.readlines()
+            in_fm = False
+            for line in lines:
+                if line.strip() == '---':
+                    if in_fm: break
+                    in_fm = True
+                    continue
+                if in_fm and line.strip().startswith('title:'):
+                    return line.strip().split(':', 1)[1].strip().strip('"\'')
+    except:
+        pass
+    return None
+
+def find_md_file(ref):
+    if ref in md_files:
+        return ref
+    for f in md_files:
+        if ref in f:
+            return f
+    return None
+
+def process_tab(tab):
+    visible = tab.get('visible', 'yes')
+    if visible != 'yes':
+        return None
+    
+    title = tab.get('title', '')
+    url = tab.get('url', '')
+    
+    item = None
+    
+    ref_match = re.search(r'@ref\s+(\w+)', url)
+    if ref_match:
+        ref = ref_match.group(1)
+        md_file = find_md_file(ref)
+        
+        if md_file:
+            used_files.add(md_file)
+            fm_title = get_frontmatter_title(os.path.join(target_dir, md_file + '.md'))
+            label = title if title else (fm_title if fm_title else md_file.replace('wb_idf_', '').replace('_', ' ').title())
+            
+            item = {
+                "type": "doc",
+                "id": md_file,
+                "label": label
+            }
+    
+    subtabs = tab.findall('tab')
+    children = []
+    for subtab in subtabs:
+        child = process_tab(subtab)
+        if child:
+            children.append(child)
+            
+    if children:
+        cat = {
+            "type": "category",
+            "label": title if title else "Group",
+            "items": children,
+            "collapsed": False
+        }
+        if item:
+            cat["link"] = {
+                "type": "doc",
+                "id": item["id"]
+            }
+            if not title:
+                cat["label"] = item["label"]
+        return cat
+    
+    return item
 
 try:
-    tree = ET.parse('$layout_file')
+    tree = ET.parse(layout_file)
     root = tree.getroot()
-    
     navindex = root.find('.//navindex')
-    if navindex is None:
-        sys.exit(0)
     
-    for tab in navindex.findall('tab'):
-        if tab.get('visible', 'yes') != 'yes':
-            continue
-        
-        tab_type = tab.get('type', 'user')
-        title = tab.get('title', '')
-        url = tab.get('url', '')
-        
-        import re
-        ref_match = re.search(r'@ref\s+(\w+)', url)
-        if ref_match:
-            group_ref = ref_match.group(1)
-            has_subtabs = 'yes' if tab.findall('tab') else 'no'
-            print(f"{group_ref}|{title}|{has_subtabs}")
-            
-            for subtab in tab.findall('tab'):
-                sub_title = subtab.get('title', '')
-                sub_url = subtab.get('url', '')
-                sub_ref_match = re.search(r'@ref\s+(\w+)', sub_url)
-                if sub_ref_match:
-                    sub_group_ref = sub_ref_match.group(1)
-                    print(f"{sub_group_ref}|{sub_title}|no")
+    if navindex:
+        for tab in navindex.findall('tab'):
+            item = process_tab(tab)
+            if item:
+                sidebar_items.append(item)
 
 except Exception as e:
-    print(f"ERROR|Parsing failed: {str(e)}|no", file=sys.stderr)
-    sys.exit(1)
+    sys.stderr.write(f"Error parsing layout: {e}\n")
+
+for f in md_files:
+    if f not in used_files:
+        fm_title = get_frontmatter_title(os.path.join(target_dir, f + '.md'))
+        label = fm_title if fm_title else f.replace('wb_idf_', '').replace('_', ' ').title()
+        sidebar_items.append({
+            "type": "doc",
+            "id": f,
+            "label": label
+        })
+
+if sidebar_items:
+    print(",\n".join(json.dumps(item, indent=2) for item in sidebar_items))
 PYTHON_EOF
-)
-
-            local first=true
-            for item in "${sidebar_items[@]}"; do
-                IFS='|' read -r md_file label <<< "$item"
-                
-                [ "$first" = false ] && echo "," >> "$sidebar_file"
-                first=false
-                
-                cat >> "$sidebar_file" << EOF
-        {
-          "type": "doc",
-          "id": "$md_file",
-          "label": "$label"
-        }
-EOF
-            done
-            
-            for md_file in "${md_files[@]}"; do
-                [ -z "$md_file" ] && continue
-
-                local is_used=false
-                for used in "${used_files[@]}"; do
-                    if [ "$md_file" = "$used" ]; then
-                        is_used=true
-                        break
-                    fi
-                done
-
-                [ "$is_used" = true ] && continue
-                
-                [ "$first" = false ] && echo "," >> "$sidebar_file"
-                first=false
-
-                local label="$md_file"
-                if [ -f "$target_dir/$md_file.md" ]; then
-                    local frontmatter_label=$(sed -n '/^---$/,/^---$/p' "$target_dir/$md_file.md" | grep '^title:' | sed 's/^title: *//' | sed 's/^["'\'']//' | sed 's/["'\'']$//')
-                    [ -n "$frontmatter_label" ] && label="$frontmatter_label"
-                fi
-                
-                if [ "$label" = "$md_file" ]; then
-                    label=$(echo "$md_file" | sed 's/wb_idf_//' | sed 's/_/ /g' | sed 's/\b\(.\)/\u\1/g')
-                fi
-                
-                cat >> "$sidebar_file" << EOF
-        {
-          "type": "doc",
-          "id": "$md_file",
-          "label": "$label"
-        }
-EOF
-            done
         else
             echo_debug "Using flat structure (no DoxygenLayout.xml)..."
             
@@ -727,11 +738,13 @@ EOF
             done
         fi
         
-        cat >> "$sidebar_file" << 'EOF'
+        if [ "$use_doxygen_layout" = false ]; then
+            cat >> "$sidebar_file" << 'EOF'
 
       ]
     }
 EOF
+        fi
     fi
 
     cat >> "$sidebar_file" << 'EOF'
