@@ -36,6 +36,38 @@
     "type": "doc",
     "id": "wb_idf_i2c"
   }
+},
+{
+  "type": "category",
+  "label": "WLAN Driver",
+  "items": [
+    {
+      "type": "doc",
+      "id": "wb_idf_wlan",
+      "label": "Initialization & Management"
+    }
+  ],
+  "collapsed": false,
+  "link": {
+    "type": "doc",
+    "id": "wb_idf_wlan"
+  }
+},
+{
+  "type": "category",
+  "label": "SNTP Client",
+  "items": [
+    {
+      "type": "doc",
+      "id": "wb_idf_sntp_init",
+      "label": "Initialization"
+    }
+  ],
+  "collapsed": false,
+  "link": {
+    "type": "doc",
+    "id": "wb_idf_sntp"
+  }
 }
   ]
 }

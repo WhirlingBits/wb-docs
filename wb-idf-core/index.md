@@ -84,3 +84,11 @@ Licensed under the Apache License, Version 2.0. See LICENSE file in the project 
 ### [I2C Master Driver](./wb_idf_i2c)
 
 Advanced I2C Master functionality for ESP-IDF.
+
+### [WLAN Driver](./wb_idf_wlan)
+
+Advanced WLAN functionality for ESP-IDF.
+
+### [SNTP Client](./wb_idf_sntp)
+
+Simple SNTP Time Synchronization for ESP-IDF.
