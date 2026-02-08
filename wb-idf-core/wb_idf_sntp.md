@@ -45,7 +45,7 @@ graph TD
 
 ## API Modules
 
-### @ref wb_idf_sntp_init "Initialization & Management"
+### [Initialization & Management](wb_idf_sntp_init)
 
 Core functions for setting up and retrieving time:
 

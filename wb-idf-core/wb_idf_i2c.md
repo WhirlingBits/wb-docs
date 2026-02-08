@@ -52,7 +52,7 @@ graph TD
 
 The API is organized into functional modules for better clarity:
 
-### @ref wb_idf_i2c_init "Initialization & Management"
+### [Initialization & Management](wb_idf_i2c_init)
 
 Core functions for setting up I2C buses and managing device handles:
 
@@ -70,7 +70,7 @@ Key functions:
 - wb_i2c_master_device_create() - Create a device handle
 - wb_i2c_master_bus_probe_device() - Check if device responds
 
-### @ref wb_idf_i2c_byte "Byte Operations"
+### [Byte Operations](wb_idf_i2c_byte)
 
 Standard byte-level I/O operations for register access:
 
@@ -88,7 +88,7 @@ Key functions:
 - wb_i2c_master_bus_read_multiple_bytes() - Burst read
 - wb_i2c_master_bus_write_multiple_bytes() - Burst write
 
-### @ref wb_idf_i2c_bit "Bit Operations"
+### [Bit Operations](wb_idf_i2c_bit)
 
 Fine-grained control for bit-level register manipulation:
 
@@ -107,7 +107,7 @@ Key functions:
 - wb_i2c_master_bus_read_byte_bits() - Read bit range
 - wb_i2c_master_bus_write_byte_bits() - Write bit range
 
-### @ref wb_idf_i2c_word "Word Operations (16-bit)"
+### [Word Operations (16-bit)](wb_idf_i2c_word)
 
 16-bit register access for devices with multi-byte values:
 

@@ -50,7 +50,7 @@ graph TD
 
 The API is organized into main functional areas:
 
-### @ref wb_idf_wlan_init "Initialization"
+### [Initialization](wb_idf_wlan_init)
 
 Functions for setting up WiFi in different modes:
 
@@ -66,7 +66,7 @@ Key functions:
 - wb_wifi_init_sta() - Initialize as Station (Client)
 - wb_wifi_init_ap() - Initialize as Access Point (Hotspot)
 
-### @ref wb_idf_wlan_mgmt "Management"
+### [Management](wb_idf_wlan_mgmt)
 
 Functions for controlling the WiFi lifecycle:
 
