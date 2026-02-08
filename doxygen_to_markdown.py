@@ -113,7 +113,7 @@ class DoxygenXMLParser:
                 return
 
             name = compound.findtext('compoundname', '')
-            title = compound.findtext('title', name)
+            title = self._resolve_refs(compound.findtext('title', name))
 
             self._processed_para_ids.clear()
             brief = self._get_description_direct(compound.find('briefdescription'))
@@ -196,7 +196,7 @@ class DoxygenXMLParser:
             title_text = ''.join(title_elem.itertext()).strip()
             if title_text:
                 heading = '#' * level
-                parts.append(f"{heading} {title_text}")
+                parts.append(f"{heading} {self._resolve_refs(title_text)}")
 
         for para in sect_elem.findall('./para'):
             para_id = id(para)
@@ -255,6 +255,15 @@ class DoxygenXMLParser:
                 parts.append(text)
 
         return '\n\n'.join(parts)
+
+    def _resolve_refs(self, text: str) -> str:
+        if not text:
+            return ""
+        # Handle @ref id "Label"
+        text = re.sub(r'@ref\s+(\w+)\s+"([^"]+)"', r'[\2](\1)', text)
+        # Handle @ref id
+        text = re.sub(r'@ref\s+(\w+)(?!\s*")', r'[\1](\1)', text)
+        return text
 
     def _parse_para(self, para) -> str:
         result: List[str] = []
@@ -366,7 +375,7 @@ class DoxygenXMLParser:
             return '\n\n'.join(result).strip()
 
         if para.text and para.text.strip():
-            result.append(para.text.strip())
+            result.append(self._resolve_refs(para.text.strip()))
 
         for child in para:
             if child.tag == 'ref':
@@ -390,7 +399,7 @@ class DoxygenXMLParser:
                         result.append(f"\n\n**{sect_title}:** {sect_content}\n")
 
             if child.tail and child.tail.strip():
-                result.append(child.tail.strip())
+                result.append(self._resolve_refs(child.tail.strip()))
 
         return ' '.join(filter(None, result)).strip()
 
