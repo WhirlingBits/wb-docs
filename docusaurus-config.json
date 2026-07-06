@@ -4,10 +4,30 @@
       "id": "wb-idf-core",
       "label": "wb-idf-core",
       "description": "Core functionality and base components",
-      "category": "drivers",
-      "displayMode": "toplevel",
+      "category": "components",
+      "displayMode": "category",
       "editUrl": "https://github.com/WhirlingBits/wb-idf-core/tree/main/",
       "githubUrl": "https://github.com/WhirlingBits/wb-idf-core",
+      "enabled": true
+    },
+    {
+      "id": "wb-idf-coap-client",
+      "label": "wb-idf-coap-client",
+      "description": "CoAP client component for ESP-IDF",
+      "category": "components",
+      "displayMode": "category",
+      "editUrl": "https://github.com/WhirlingBits/wb-idf-coap-client/tree/main/",
+      "githubUrl": "https://github.com/WhirlingBits/wb-idf-coap-client",
+      "enabled": true
+    },
+    {
+      "id": "wb-idf-lwm2m",
+      "label": "wb-idf-lwm2m",
+      "description": "LwM2M component for ESP-IDF",
+      "category": "components",
+      "displayMode": "category",
+      "editUrl": "https://github.com/WhirlingBits/wb-idf-lwm2m/tree/main/",
+      "githubUrl": "https://github.com/WhirlingBits/wb-idf-lwm2m",
       "enabled": true
     }
   ],
@@ -18,6 +38,13 @@
         "label": "\ud83d\udd27 Hardware Drivers",
         "icon": "\ud83d\udd27",
         "description": "Low-level peripheral drivers for ESP32",
+        "position": "left"
+      },
+      {
+        "id": "components",
+        "label": "\ud83e\udde9 Components",
+        "icon": "\ud83e\udde9",
+        "description": "Reusable ESP-IDF components and libraries",
         "position": "left"
       },
       {

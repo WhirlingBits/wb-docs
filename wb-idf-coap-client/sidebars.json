@@ -1,0 +1,26 @@
+{
+  "apiSidebar": [
+    {
+      "type": "doc",
+      "id": "index",
+      "label": "Overview"
+    }
+,
+{
+  "type": "category",
+  "label": "CoAP Client API",
+  "items": [
+    {
+      "type": "doc",
+      "id": "wb_coap_client",
+      "label": "Configuration & Lifecycle"
+    }
+  ],
+  "collapsed": false,
+  "link": {
+    "type": "doc",
+    "id": "wb_coap_client"
+  }
+}
+  ]
+}

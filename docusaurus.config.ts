@@ -166,8 +166,16 @@ function generateVersionConfig(repoId: string, settings: ConfigData['settings'])
 
   if (validVersions.length === 0 && hasCurrentDocs) {
     console.log(`   ℹ️  ${repoId}: Only current (no versioning)`);
+
+    if (versions.length > 0) {
+      console.warn(`   ⚠️  ${repoId}: versions metadata exists but no valid versioned docs found; forcing versioning off`);
+      return {
+        disableVersioning: true,
+        includeCurrentVersion: true,
+      };
+    }
+
     return {
-      disableVersioning: true,
       includeCurrentVersion: true,
     };
   }
@@ -250,8 +258,8 @@ const docsPlugins = repositories
     console.log(`   Category: ${repo.category}`);
     console.log(`   Display Mode: ${repo.displayMode}`);
     console.log(`   Path: ${repo.id}`);
-    console.log(`   Versioning: ${versionConfig.disableVersioning ? 'disabled' : 'enabled'}`);
-    if (!versionConfig.disableVersioning) {
+    console.log(`   Versioning: ${'lastVersion' in versionConfig ? 'enabled' : 'disabled'}`);
+    if ('lastVersion' in versionConfig) {
       console.log(`   Last Version: ${versionConfig.lastVersion}`);
       console.log(`   Include Current: ${versionConfig.includeCurrentVersion}`);
     }
@@ -271,9 +279,15 @@ const docsPlugins = repositories
         ...(sidebarPath && { sidebarPath }),
         editUrl: repo.editUrl,
 
-        lastVersion: versionConfig.lastVersion,
-        includeCurrentVersion: versionConfig.includeCurrentVersion,
-        disableVersioning: versionConfig.disableVersioning,
+        ...('lastVersion' in versionConfig && {
+          lastVersion: versionConfig.lastVersion,
+        }),
+        ...('includeCurrentVersion' in versionConfig && {
+          includeCurrentVersion: versionConfig.includeCurrentVersion,
+        }),
+        ...('disableVersioning' in versionConfig && {
+          disableVersioning: versionConfig.disableVersioning,
+        }),
         
         remarkPlugins: [],
         rehypePlugins: [],
@@ -301,7 +315,6 @@ const config: Config = {
 
   onBrokenLinks: 'warn',
   onBrokenAnchors: 'warn',
-  onBrokenMarkdownLinks: 'warn',
 
   i18n: {
     defaultLocale: 'en',
@@ -327,6 +340,9 @@ const config: Config = {
   markdown: {
     mermaid: true,
     format: 'detect',
+    hooks: {
+      onBrokenMarkdownLinks: 'warn',
+    },
   },
 
   themeConfig: {

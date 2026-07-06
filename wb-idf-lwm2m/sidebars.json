@@ -1,0 +1,79 @@
+{
+  "apiSidebar": [
+    {
+      "type": "doc",
+      "id": "index",
+      "label": "Overview"
+    }
+,
+{
+  "type": "category",
+  "label": "LWM2M Client",
+  "items": [
+    {
+      "type": "doc",
+      "id": "wb_lwm2m",
+      "label": "Init / Start / Stop"
+    }
+  ],
+  "collapsed": false,
+  "link": {
+    "type": "doc",
+    "id": "wb_lwm2m"
+  }
+},
+{
+  "type": "category",
+  "label": "Object Model",
+  "items": [
+    {
+      "type": "doc",
+      "id": "wb_lwm2m_object",
+      "label": "Definitions & Macros"
+    }
+  ],
+  "collapsed": false,
+  "link": {
+    "type": "doc",
+    "id": "wb_lwm2m_object"
+  }
+},
+{
+  "type": "category",
+  "label": "Standard Objects",
+  "items": [
+    {
+      "type": "doc",
+      "id": "wb_lwm2m_std_objects",
+      "label": "Security / Server / Device / Firmware"
+    }
+  ],
+  "collapsed": false,
+  "link": {
+    "type": "doc",
+    "id": "wb_lwm2m_std_objects"
+  }
+},
+{
+  "type": "category",
+  "label": "Encoding",
+  "items": [
+    {
+      "type": "doc",
+      "id": "wb_lwm2m_encode",
+      "label": "Link-Format & SenML-JSON"
+    },
+    {
+      "type": "doc",
+      "id": "wb_lwm2m_tlv",
+      "label": "TLV Encoder / Decoder"
+    }
+  ],
+  "collapsed": false,
+  "link": {
+    "type": "doc",
+    "id": "wb_lwm2m_encode"
+  }
+}
+  ]
+}

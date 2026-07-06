@@ -1,0 +1,2888 @@
+openapi: 3.1.0
+info:
+  title: WhirlingBits IoT Server API
+  version: "1.0"
+  description: |
+    REST API for the WhirlingBits IoT Server — LwM2M device management,
+    telemetry, OTA updates, user/tenant management and system administration.
+
+    ## Authentication
+    All protected endpoints require a **Bearer token** obtained via `POST /api/auth/login`.
+
+    ```
+    Authorization: Bearer <token>
+    ```
+
+    API keys are also accepted as Bearer tokens for programmatic access.
+
+  contact:
+    name: WhirlingBits
+  license:
+    name: Proprietary
+
+servers:
+  - url: http://localhost:18080
+    description: Local development
+
+tags:
+  - name: Auth
+    description: Authentication, registration, 2FA, sessions, API keys
+  - name: Devices
+    description: LwM2M device management, resources, attributes, telemetry
+  - name: OTA
+    description: Over-the-Air firmware management and deployment
+  - name: Bootstrap
+    description: LwM2M Bootstrap assignments and device profiles
+  - name: Alerts
+    description: Device offline alert rules and alert history
+  - name: Profiles
+    description: Device profiles
+  - name: Groups
+    description: Device groups
+  - name: Tenant
+    description: Tenant user management (role: tenant)
+  - name: Admin – Users
+    description: Sysadmin user and tenant management
+  - name: Admin – Config
+    description: LwM2M, SMTP and Bootstrap server configuration
+  - name: Admin – OTA
+    description: Sysadmin OTA file management
+  - name: Admin – Backups
+    description: Database backup and restore
+  - name: Admin – System
+    description: Audit log, system metrics, server logs, SSE events
+  - name: Public
+    description: Unauthenticated endpoints
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Reusable components
+# ─────────────────────────────────────────────────────────────────────────────
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    # ── Primitives / shared ────────────────────────────────────────────
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Unauthorized"
+
+    UserAccount:
+      type: object
+      properties:
+        username:
+          type: string
+          example: alice
+        displayName:
+          type: string
+          example: Alice Wonderland
+        email:
+          type: string
+          format: email
+          nullable: true
+        role:
+          type: string
+          enum: [sysadmin, tenant, user]
+        tenantId:
+          type: string
+          nullable: true
+        language:
+          type: string
+          enum: [de, en]
+          default: de
+        emailVerified:
+          type: boolean
+        twoFactorEnabled:
+          type: boolean
+
+    Device:
+      type: object
+      properties:
+        endpoint:
+          type: string
+          example: device-001
+        alive:
+          type: boolean
+        lwm2mVersion:
+          type: string
+          example: "1.1"
+        objects:
+          type: array
+          items:
+            type: string
+        lastSeen:
+          type: string
+          format: date-time
+          nullable: true
+        username:
+          type: string
+          nullable: true
+        tenantId:
+          type: string
+          nullable: true
+        deviceType:
+          type: string
+          nullable: true
+
+    OtaFile:
+      type: object
+      properties:
+        id:
+          type: string
+        filename:
+          type: string
+        version:
+          type: string
+        deviceType:
+          type: string
+        target:
+          type: string
+          default: default
+        variant:
+          type: string
+          default: stable
+        size:
+          type: integer
+        sha256:
+          type: string
+        uploadedAt:
+          type: string
+
+    AlertRule:
+      type: object
+      properties:
+        id:
+          type: string
+        endpointPattern:
+          type: string
+          example: "device-*"
+        thresholdMinutes:
+          type: integer
+          example: 30
+        channelType:
+          type: string
+          enum: [email, webhook, both]
+        email:
+          type: string
+          nullable: true
+        webhookUrl:
+          type: string
+          nullable: true
+        enabled:
+          type: boolean
+
+    BootstrapAssignment:
+      type: object
+      properties:
+        endpointPattern:
+          type: string
+        username:
+          type: string
+          nullable: true
+        tenantId:
+          type: string
+        matchType:
+          type: string
+          enum: [exact, wildcard]
+        provisionedFrom:
+          type: string
+          nullable: true
+
+    DeviceProfile:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        deviceType:
+          type: string
+        firmwareVersions:
+          type: array
+          items:
+            type: string
+        supportedResources:
+          type: array
+          items:
+            type: object
+
+    Backup:
+      type: object
+      properties:
+        id:
+          type: string
+        filename:
+          type: string
+        size:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        type:
+          type: string
+          enum: [manual, scheduled, pre-restore]
+
+    AuditEntry:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        username:
+          type: string
+        tenantId:
+          type: string
+          nullable: true
+        action:
+          type: string
+        resource:
+          type: string
+          nullable: true
+        ip:
+          type: string
+          nullable: true
+
+    Session:
+      type: object
+      properties:
+        sessionId:
+          type: string
+        userAgent:
+          type: string
+        ip:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        lastUsedAt:
+          type: string
+          format: date-time
+
+    Invitation:
+      type: object
+      properties:
+        token:
+          type: string
+        username:
+          type: string
+          nullable: true
+        displayName:
+          type: string
+          nullable: true
+        email:
+          type: string
+          nullable: true
+        role:
+          type: string
+        tenantId:
+          type: string
+          nullable: true
+        used:
+          type: boolean
+        expiresAt:
+          type: string
+          format: date-time
+        invitationLink:
+          type: string
+
+security:
+  - bearerAuth: []
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Paths
+# ─────────────────────────────────────────────────────────────────────────────
+paths:
+
+  # ════════════════════════════════════════════════════════════════════
+  # Public
+  # ════════════════════════════════════════════════════════════════════
+
+  /health:
+    get:
+      tags: [Public]
+      summary: Health check
+      security: []
+      responses:
+        "200":
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /api/version:
+    get:
+      tags: [Public]
+      summary: Server version
+      security: []
+      responses:
+        "200":
+          description: Version info
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  version:
+                    type: string
+                    example: "1.2.0"
+
+  # ════════════════════════════════════════════════════════════════════
+  # Auth
+  # ════════════════════════════════════════════════════════════════════
+
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: Login
+      description: Authenticates a user and returns a JWT token. If 2FA is enabled the response contains `twoFactorRequired: true` and a `challengeToken` instead of the actual token.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+                  format: password
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    properties:
+                      token:
+                        type: string
+                      user:
+                        $ref: "#/components/schemas/UserAccount"
+                  - type: object
+                    description: 2FA challenge
+                    properties:
+                      twoFactorRequired:
+                        type: boolean
+                        example: true
+                      challengeToken:
+                        type: string
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/auth/2fa/verify:
+    post:
+      tags: [Auth]
+      summary: Verify 2FA code during login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [challengeToken, code]
+              properties:
+                challengeToken:
+                  type: string
+                code:
+                  type: string
+                  example: "123456"
+      responses:
+        "200":
+          description: 2FA verified, returns JWT
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                  user:
+                    $ref: "#/components/schemas/UserAccount"
+        "401":
+          description: Invalid code
+
+  /api/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Logout (invalidate current session token)
+      responses:
+        "200":
+          description: Logged out
+
+  /api/auth/me:
+    get:
+      tags: [Auth]
+      summary: Get current user (legacy, prefer /api/auth/account)
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: "#/components/schemas/UserAccount"
+
+  /api/auth/account:
+    get:
+      tags: [Auth]
+      summary: Get current user account details
+      responses:
+        "200":
+          description: Account details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: "#/components/schemas/UserAccount"
+    patch:
+      tags: [Auth]
+      summary: Update account (displayName, email, language)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                displayName:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                language:
+                  type: string
+                  enum: [de, en]
+      responses:
+        "200":
+          description: Updated account
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: "#/components/schemas/UserAccount"
+
+  /api/auth/account/password:
+    post:
+      tags: [Auth]
+      summary: Change password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword, newPassword]
+              properties:
+                currentPassword:
+                  type: string
+                  format: password
+                newPassword:
+                  type: string
+                  format: password
+      responses:
+        "200":
+          description: Password changed
+
+  /api/auth/register:
+    post:
+      tags: [Auth]
+      summary: Register with invitation token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [invitationToken, username, displayName, password]
+              properties:
+                invitationToken:
+                  type: string
+                username:
+                  type: string
+                displayName:
+                  type: string
+                password:
+                  type: string
+                  format: password
+      responses:
+        "200":
+          description: Registered successfully
+        "400":
+          description: Invalid token or validation error
+
+  /api/auth/email/verify:
+    get:
+      tags: [Auth]
+      summary: Verify email address via token link
+      security: []
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Email verified
+        "400":
+          description: Invalid or expired token
+
+  /api/auth/password/forgot:
+    post:
+      tags: [Auth]
+      summary: Request password reset email
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [identifier]
+              properties:
+                identifier:
+                  type: string
+                  description: Username or email address
+      responses:
+        "200":
+          description: Reset email sent (always returns 200 to prevent enumeration)
+
+  /api/auth/password/reset:
+    post:
+      tags: [Auth]
+      summary: Reset password using reset token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, newPassword]
+              properties:
+                token:
+                  type: string
+                newPassword:
+                  type: string
+                  format: password
+      responses:
+        "200":
+          description: Password reset successful
+        "400":
+          description: Invalid or expired token
+
+  /api/auth/invitations/inspect:
+    get:
+      tags: [Auth]
+      summary: Inspect an invitation token (public, pre-registration)
+      security: []
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Invitation details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  username:
+                    type: string
+                    nullable: true
+                  displayName:
+                    type: string
+                    nullable: true
+                  email:
+                    type: string
+                    nullable: true
+                  role:
+                    type: string
+                  tenantId:
+                    type: string
+                    nullable: true
+
+  /api/auth/sessions:
+    get:
+      tags: [Auth]
+      summary: List active sessions for current user
+      responses:
+        "200":
+          description: Active sessions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Session"
+
+  /api/auth/sessions/{sessionId}:
+    delete:
+      tags: [Auth]
+      summary: Revoke a specific session
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Session revoked
+
+  /api/auth/2fa/status:
+    get:
+      tags: [Auth]
+      summary: Get 2FA status for current user
+      responses:
+        "200":
+          description: 2FA status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  enabled:
+                    type: boolean
+
+  /api/auth/2fa/setup:
+    get:
+      tags: [Auth]
+      summary: Generate TOTP setup (QR code URL + secret)
+      responses:
+        "200":
+          description: TOTP setup data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  secret:
+                    type: string
+                  qrUrl:
+                    type: string
+
+  /api/auth/2fa/enable:
+    post:
+      tags: [Auth]
+      summary: Enable 2FA (confirm with TOTP code + password)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, password]
+              properties:
+                code:
+                  type: string
+                  example: "123456"
+                password:
+                  type: string
+                  format: password
+      responses:
+        "200":
+          description: 2FA enabled
+
+  /api/auth/2fa/disable:
+    post:
+      tags: [Auth]
+      summary: Disable 2FA (confirm with password)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                password:
+                  type: string
+                  format: password
+      responses:
+        "200":
+          description: 2FA disabled
+
+  /api/users/{username}/language:
+    patch:
+      tags: [Auth]
+      summary: Update language preference for a user
+      description: A user can update their own language. Sysadmin can update any user.
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [language]
+              properties:
+                language:
+                  type: string
+                  enum: [de, en]
+      responses:
+        "200":
+          description: Language updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: "#/components/schemas/UserAccount"
+
+  # ════════════════════════════════════════════════════════════════════
+  # Devices
+  # ════════════════════════════════════════════════════════════════════
+
+  /api/devices:
+    get:
+      tags: [Devices]
+      summary: List all devices visible to current user
+      responses:
+        "200":
+          description: Device list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Device"
+
+  /api/devices/{endpoint}/resources:
+    get:
+      tags: [Devices]
+      summary: Get cached LwM2M resources for a device
+      parameters:
+        - name: endpoint
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Resource list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  resources:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        path:
+                          type: string
+                          example: "/3/0/0"
+                        value:
+                          type: string
+                          nullable: true
+                        status:
+                          type: string
+                        readAt:
+                          type: string
+                          format: date-time
+                          nullable: true
+
+  /api/devices/{endpoint}/resources/refresh:
+    post:
+      tags: [Devices]
+      summary: Trigger a resource refresh (reads all objects from device)
+      parameters:
+        - name: endpoint
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Refresh triggered
+
+  /api/devices/{endpoint}/resources/read:
+    post:
+      tags: [Devices]
+      summary: Read a single LwM2M resource path
+      parameters:
+        - name: endpoint
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [path]
+              properties:
+                path:
+                  type: string
+                  example: "/3/0/0"
+      responses:
+        "200":
+          description: Resource value
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  path:
+                    type: string
+                  value:
+                    type: string
+                    nullable: true
+                  status:
+                    type: string
+
+  /api/devices/{endpoint}/resources/{lwm2mPath}:
+    put:
+      tags: [Devices]
+      summary: Write a LwM2M resource (or enqueue if device is offline)
+      parameters:
+        - name: endpoint
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: lwm2mPath
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "3/0/13"
+        - name: enqueue
+          in: query
+          schema:
+            type: boolean
+            default: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [value]
+              properties:
+                value:
+                  type: string
+      responses:
+        "200":
+          description: Write result
+
+  /api/devices/{endpoint}/execute/{lwm2mPath}:
+    post:
+      tags: [Devices]
+      summary: Execute a LwM2M resource (or enqueue if offline)
+      parameters:
+        - name: endpoint
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: lwm2mPath
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "3/0/4"
+        - name: enqueue
+          in: query
+          schema:
+            type: boolean
+            default: false
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                args:
+                  type: string
+                  nullable: true
+      responses:
+        "200":
+          description: Execute result
+
+  /api/devices/{endpoint}/commands:
+    get:
+      tags: [Devices]
+      summary: Get pending / recent commands for a device
+      parameters:
+        - name: endpoint
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Command list
+
+  /api/devices/{endpoint}/pending-commands/{commandId}:
+    delete:
+      tags: [Devices]
+      summary: Cancel a pending command
+      parameters:
+        - name: endpoint
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: commandId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Command cancelled
+
+  /api/devices/{endpoint}/attributes:
+    get:
+      tags: [Devices]
+      summary: Get all attributes (server + client + shared)
+      parameters:
+        - name: endpoint
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: All attribute categories
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  server:
+                    type: array
+                    items:
+                      type: object
+                  client:
+                    type: array
+                    items:
+                      type: object
+                  shared:
+                    type: array
+                    items:
+                      type: object
+
+  /api/devices/{endpoint}/attributes/server:
+    get:
+      tags: [Devices]
+      summary: Get server-side attributes
+      parameters:
+        - name: endpoint
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Server attributes
+    post:
+      tags: [Devices]
+      summary: Create or update a server attribute
+      parameters:
+        - name: endpoint
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [key, value]
+              properties:
+                key:
+                  type: string
+                value:
+                  type: string
+      responses:
+        "200":
+          description: Attribute saved
+
+  /api/devices/{endpoint}/attributes/server/{key}:
+    delete:
+      tags: [Devices]
+      summary: Delete a server attribute
+      parameters:
+        - name: endpoint
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+
+  /api/devices/{endpoint}/attributes/client:
+    get:
+      tags: [Devices]
+      summary: Get client-reported attributes
+      parameters:
+        - name: endpoint
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Client attributes
+
+  /api/devices/{endpoint}/attributes/shared:
+    get:
+      tags: [Devices]
+      summary: Get shared attributes (synced to device via LwM2M)
+      parameters:
+        - name: endpoint
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Shared attributes
+    post:
+      tags: [Devices]
+      summary: Create or update a shared attribute (syncs to device)
+      parameters:
+        - name: endpoint
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [key, value]
+              properties:
+                key:
+                  type: string
+                lwm2mPath:
+                  type: string
+                  description: Optional LwM2M path to write on sync
+                  example: "/19/0/0"
+                value:
+                  type: string
+      responses:
+        "200":
+          description: Attribute saved and sync triggered
+
+  /api/devices/{endpoint}/attributes/shared/{key}:
+    delete:
+      tags: [Devices]
+      summary: Delete a shared attribute
+      parameters:
+        - name: endpoint
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+
+  /api/devices/{endpoint}/attributes/batch:
+    post:
+      tags: [Devices]
+      summary: Set multiple attributes in one request
+      parameters:
+        - name: endpoint
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                server:
+                  type: object
+                  additionalProperties:
+                    type: string
+                shared:
+                  type: object
+                  additionalProperties:
+                    type: string
+      responses:
+        "200":
+          description: Attributes updated
+
+  /api/devices/{endpoint}/telemetry:
+    get:
+      tags: [Devices]
+      summary: Get latest telemetry values for a device
+      parameters:
+        - name: endpoint
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Telemetry key-value pairs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  telemetry:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        key:
+                          type: string
+                        value:
+                          type: string
+                        timestamp:
+                          type: string
+                          format: date-time
+
+  /api/devices/{endpoint}/telemetry/keys:
+    get:
+      tags: [Devices]
+      summary: List all telemetry keys for a device
+      parameters:
+        - name: endpoint
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Telemetry keys
+
+  /api/devices/{endpoint}/telemetry/series:
+    get:
+      tags: [Devices]
+      summary: Get time-series telemetry data for multiple keys
+      parameters:
+        - name: endpoint
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: keys
+          in: query
+          schema:
+            type: string
+            description: Comma-separated list of telemetry keys
+        - name: from
+          in: query
+          schema:
+            type: integer
+            description: Start timestamp (ms)
+        - name: to
+          in: query
+          schema:
+            type: integer
+            description: End timestamp (ms)
+      responses:
+        "200":
+          description: Time-series data
+
+  /api/devices/{endpoint}/telemetry/{key}/aggregate:
+    get:
+      tags: [Devices]
+      summary: Get aggregated telemetry (min/max/avg) for a key
+      parameters:
+        - name: endpoint
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: interval
+          in: query
+          schema:
+            type: string
+            example: 1h
+      responses:
+        "200":
+          description: Aggregated telemetry
+
+  /api/devices/{endpoint}/telemetry/{key}:
+    get:
+      tags: [Devices]
+      summary: Get historical values for a single telemetry key
+      parameters:
+        - name: endpoint
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+        - name: from
+          in: query
+          schema:
+            type: integer
+        - name: to
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Historical values
+
+  /api/devices/{endpoint}/tags:
+    get:
+      tags: [Devices]
+      summary: Get tags for a device
+      parameters:
+        - name: endpoint
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Tags
+    put:
+      tags: [Devices]
+      summary: Set tags for a device
+      parameters:
+        - name: endpoint
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                tags:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "200":
+          description: Tags saved
+
+  /api/devices/{endpoint}/events:
+    get:
+      tags: [Devices]
+      summary: Get event log for a device
+      parameters:
+        - name: endpoint
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Event entries
+
+  /api/devices/{endpoint}/test:
+    post:
+      tags: [Devices]
+      summary: Run a connectivity / protocol test on a device
+      parameters:
+        - name: endpoint
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Test result
+
+  /api/devices/bulk/tags:
+    post:
+      tags: [Devices]
+      summary: Set tags on multiple devices at once
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [endpoints, tags]
+              properties:
+                endpoints:
+                  type: array
+                  items:
+                    type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "200":
+          description: Tags updated
+
+  /api/devices/import:
+    post:
+      tags: [Devices]
+      summary: Bulk import devices via CSV
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [csv, username]
+              properties:
+                csv:
+                  type: string
+                  description: CSV with endpoint column
+                username:
+                  type: string
+      responses:
+        "200":
+          description: Import result
+
+  /api/devices/assignments:
+    get:
+      tags: [Devices]
+      summary: List device claim assignments
+      responses:
+        "200":
+          description: Assignments
+
+  /api/devices/{endpoint}/claim:
+    delete:
+      tags: [Devices]
+      summary: Release a device claim (unassign)
+      parameters:
+        - name: endpoint
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Claim released
+
+  /api/devices/{endpoint}/owner:
+    patch:
+      tags: [Devices]
+      summary: Reassign device to another user
+      parameters:
+        - name: endpoint
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username]
+              properties:
+                username:
+                  type: string
+      responses:
+        "200":
+          description: Owner updated
+
+  /api/devices/claim:
+    post:
+      tags: [Devices]
+      summary: Claim a device using a device code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code:
+                  type: string
+      responses:
+        "200":
+          description: Device claimed
+
+  # ════════════════════════════════════════════════════════════════════
+  # OTA
+  # ════════════════════════════════════════════════════════════════════
+
+  /api/ota/files:
+    get:
+      tags: [OTA]
+      summary: List OTA firmware files (tenant/user role)
+      responses:
+        "200":
+          description: OTA file list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/OtaFile"
+
+  /api/ota/files/{id}:
+    delete:
+      tags: [OTA]
+      summary: Delete an OTA file
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+
+  /api/ota/manifest:
+    get:
+      tags: [OTA]
+      summary: Check OTA manifest (tenant/user — finds latest applicable file)
+      parameters:
+        - name: deviceType
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: currentVersion
+          in: query
+          schema:
+            type: string
+        - name: target
+          in: query
+          schema:
+            type: string
+            default: default
+        - name: variant
+          in: query
+          schema:
+            type: string
+            default: stable
+      responses:
+        "200":
+          description: Manifest result (null if up-to-date)
+
+  /api/customer/ota/manifest:
+    get:
+      tags: [OTA]
+      summary: Public OTA manifest endpoint (device-facing, no auth required for device)
+      security: []
+      parameters:
+        - name: deviceType
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: currentVersion
+          in: query
+          schema:
+            type: string
+        - name: target
+          in: query
+          schema:
+            type: string
+        - name: variant
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Manifest for device
+
+  /api/ota/download/{id}:
+    get:
+      tags: [OTA]
+      summary: Download an OTA firmware file
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Binary firmware file
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+
+  /api/ota/status/{endpoint}:
+    get:
+      tags: [OTA]
+      summary: Get OTA status from device (LwM2M Object 5)
+      parameters:
+        - name: endpoint
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OTA status object
+
+  /api/ota/deploy:
+    post:
+      tags: [OTA]
+      summary: Deploy an OTA file to a device via Leshan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [endpoint, fileId]
+              properties:
+                endpoint:
+                  type: string
+                fileId:
+                  type: string
+                autoExecute:
+                  type: boolean
+                  default: true
+      responses:
+        "200":
+          description: Deploy triggered
+
+  /api/ota/history:
+    get:
+      tags: [OTA]
+      summary: List OTA deployment history
+      responses:
+        "200":
+          description: OTA history entries
+
+  /api/ota/history/{id}:
+    get:
+      tags: [OTA]
+      summary: Get a specific OTA history entry
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OTA history entry
+
+  # ════════════════════════════════════════════════════════════════════
+  # Bootstrap
+  # ════════════════════════════════════════════════════════════════════
+
+  /api/bootstrap/assignments:
+    get:
+      tags: [Bootstrap]
+      summary: List bootstrap assignments visible to current user
+      responses:
+        "200":
+          description: Bootstrap assignments
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/BootstrapAssignment"
+    post:
+      tags: [Bootstrap]
+      summary: Create a bootstrap assignment (exact or wildcard pattern)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [endpointPattern]
+              properties:
+                endpointPattern:
+                  type: string
+                  example: "device-*"
+                username:
+                  type: string
+                  nullable: true
+      responses:
+        "200":
+          description: Assignment created
+
+  /api/bootstrap/assignments/{endpoint}:
+    delete:
+      tags: [Bootstrap]
+      summary: Delete a bootstrap assignment by endpoint/pattern
+      parameters:
+        - name: endpoint
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+
+  /api/bootstrap/assignments/bulk:
+    post:
+      tags: [Bootstrap]
+      summary: Bulk create bootstrap assignments
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [assignments]
+              properties:
+                assignments:
+                  type: array
+                  items:
+                    type: object
+                    required: [endpointPattern]
+                    properties:
+                      endpointPattern:
+                        type: string
+                      username:
+                        type: string
+      responses:
+        "200":
+          description: Assignments created
+
+  /api/bootstrap/device/{endpoint}/profile:
+    get:
+      tags: [Bootstrap]
+      summary: Get the materialized bootstrap profile for a specific device
+      parameters:
+        - name: endpoint
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Bootstrap profile JSON
+
+  # ════════════════════════════════════════════════════════════════════
+  # Alerts
+  # ════════════════════════════════════════════════════════════════════
+
+  /api/alerts:
+    get:
+      tags: [Alerts]
+      summary: List alert rules for current user/tenant
+      responses:
+        "200":
+          description: Alert rules
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AlertRule"
+    post:
+      tags: [Alerts]
+      summary: Create an alert rule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AlertRule"
+      responses:
+        "200":
+          description: Alert rule created
+
+  /api/alerts/{id}:
+    delete:
+      tags: [Alerts]
+      summary: Delete an alert rule
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+    patch:
+      tags: [Alerts]
+      summary: Update an alert rule (e.g. toggle enabled)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                enabled:
+                  type: boolean
+                thresholdMinutes:
+                  type: integer
+                email:
+                  type: string
+                webhookUrl:
+                  type: string
+      responses:
+        "200":
+          description: Updated
+
+  /api/alerts/history:
+    get:
+      tags: [Alerts]
+      summary: Get alert event history
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        "200":
+          description: Alert history entries
+
+  # ════════════════════════════════════════════════════════════════════
+  # Profiles
+  # ════════════════════════════════════════════════════════════════════
+
+  /api/device-profiles:
+    get:
+      tags: [Profiles]
+      summary: List device profiles
+      responses:
+        "200":
+          description: Device profiles
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/DeviceProfile"
+    post:
+      tags: [Profiles]
+      summary: Create a device profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeviceProfile"
+      responses:
+        "200":
+          description: Profile created
+
+  # ════════════════════════════════════════════════════════════════════
+  # Groups
+  # ════════════════════════════════════════════════════════════════════
+
+  /api/groups:
+    get:
+      tags: [Groups]
+      summary: List device groups
+      responses:
+        "200":
+          description: Groups
+    post:
+      tags: [Groups]
+      summary: Create a device group
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+      responses:
+        "200":
+          description: Group created
+
+  /api/groups/{id}:
+    get:
+      tags: [Groups]
+      summary: Get a device group
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Group
+    patch:
+      tags: [Groups]
+      summary: Update a device group
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+      responses:
+        "200":
+          description: Updated
+    delete:
+      tags: [Groups]
+      summary: Delete a device group
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+
+  # ════════════════════════════════════════════════════════════════════
+  # Tenant
+  # ════════════════════════════════════════════════════════════════════
+
+  /api/tenant/users:
+    get:
+      tags: [Tenant]
+      summary: List users in own tenant (role: tenant or sysadmin)
+      responses:
+        "200":
+          description: Tenant users
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/UserAccount"
+    post:
+      tags: [Tenant]
+      summary: Create a user in own tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, displayName, password]
+              properties:
+                username:
+                  type: string
+                displayName:
+                  type: string
+                password:
+                  type: string
+                  format: password
+      responses:
+        "200":
+          description: User created
+
+  /api/tenant/users/{username}:
+    delete:
+      tags: [Tenant]
+      summary: Delete a user from own tenant
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+
+  # ════════════════════════════════════════════════════════════════════
+  # Admin – Users
+  # ════════════════════════════════════════════════════════════════════
+
+  /api/admin/tenants:
+    get:
+      tags: [Admin – Users]
+      summary: List all tenants (sysadmin only)
+      responses:
+        "200":
+          description: Tenant list
+    post:
+      tags: [Admin – Users]
+      summary: Create a new tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tenantId]
+              properties:
+                tenantId:
+                  type: string
+      responses:
+        "200":
+          description: Tenant created
+
+  /api/admin/users:
+    get:
+      tags: [Admin – Users]
+      summary: List all users across all tenants (sysadmin only)
+      responses:
+        "200":
+          description: User list
+    post:
+      tags: [Admin – Users]
+      summary: Create a user (sysadmin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, displayName, password, role]
+              properties:
+                username:
+                  type: string
+                displayName:
+                  type: string
+                password:
+                  type: string
+                  format: password
+                role:
+                  type: string
+                  enum: [sysadmin, tenant, user]
+                tenantId:
+                  type: string
+                  nullable: true
+      responses:
+        "200":
+          description: User created
+
+  /api/admin/users/{username}:
+    delete:
+      tags: [Admin – Users]
+      summary: Delete a user (sysadmin only)
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+
+  /api/admin/invitations:
+    get:
+      tags: [Admin – Users]
+      summary: List all invitations (sysadmin)
+      responses:
+        "200":
+          description: Invitations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Invitation"
+    post:
+      tags: [Admin – Users]
+      summary: Create an invitation (sysadmin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role]
+              properties:
+                username:
+                  type: string
+                  nullable: true
+                displayName:
+                  type: string
+                  nullable: true
+                email:
+                  type: string
+                  nullable: true
+                role:
+                  type: string
+                  enum: [user, tenant]
+                tenantId:
+                  type: string
+                  nullable: true
+                expiresHours:
+                  type: integer
+                  default: 24
+                sendEmail:
+                  type: boolean
+                  default: true
+      responses:
+        "200":
+          description: Invitation created
+
+  /api/admin/invitations/{token}:
+    delete:
+      tags: [Admin – Users]
+      summary: Revoke an invitation
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Revoked
+
+  /api/admin/invitations/{token}/resend:
+    post:
+      tags: [Admin – Users]
+      summary: Resend invitation email
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Email resent
+
+  /api/admin/commands:
+    get:
+      tags: [Admin – Users]
+      summary: List all pending/recent commands (sysadmin)
+      parameters:
+        - name: endpoint
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: type
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Command list
+
+  /api/admin/device-codes:
+    get:
+      tags: [Admin – Users]
+      summary: List device claim codes
+      responses:
+        "200":
+          description: Device codes
+    post:
+      tags: [Admin – Users]
+      summary: Generate a device claim code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                deviceType:
+                  type: string
+      responses:
+        "200":
+          description: Device code created
+
+  /api/admin/device-codes/bulk:
+    post:
+      tags: [Admin – Users]
+      summary: Bulk generate device claim codes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [count]
+              properties:
+                count:
+                  type: integer
+                deviceType:
+                  type: string
+      responses:
+        "200":
+          description: Codes generated
+
+  /api/admin/device-codes/{code}:
+    delete:
+      tags: [Admin – Users]
+      summary: Delete a device claim code
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+
+  # ════════════════════════════════════════════════════════════════════
+  # Admin – Config
+  # ════════════════════════════════════════════════════════════════════
+
+  /api/admin/config:
+    get:
+      tags: [Admin – Config]
+      summary: Get all server configuration sections
+      responses:
+        "200":
+          description: Full config (lwm2m, smtp, bootstrap)
+
+  /api/admin/config/lwm2m:
+    get:
+      tags: [Admin – Config]
+      summary: Get LwM2M server configuration
+      responses:
+        "200":
+          description: LwM2M config
+    put:
+      tags: [Admin – Config]
+      summary: Update LwM2M server configuration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                bindAddress:
+                  type: string
+                coapPort:
+                  type: integer
+                coapsPort:
+                  type: integer
+                httpsPort:
+                  type: integer
+                tlsCertPath:
+                  type: string
+                tlsKeyPath:
+                  type: string
+      responses:
+        "200":
+          description: Config saved
+
+  /api/admin/config/lwm2m/test:
+    post:
+      tags: [Admin – Config]
+      summary: Test LwM2M server connectivity
+      responses:
+        "200":
+          description: Test result
+
+  /api/admin/config/smtp:
+    get:
+      tags: [Admin – Config]
+      summary: Get SMTP configuration
+      responses:
+        "200":
+          description: SMTP config (password not returned)
+    put:
+      tags: [Admin – Config]
+      summary: Update SMTP configuration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                host:
+                  type: string
+                port:
+                  type: integer
+                username:
+                  type: string
+                password:
+                  type: string
+                  format: password
+                tls:
+                  type: boolean
+                fromAddress:
+                  type: string
+                  format: email
+                fromName:
+                  type: string
+      responses:
+        "200":
+          description: Config saved
+
+  /api/admin/config/smtp/test:
+    post:
+      tags: [Admin – Config]
+      summary: Send a test email
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                recipient:
+                  type: string
+                  format: email
+                  description: Optional override, defaults to fromAddress
+      responses:
+        "200":
+          description: Test email sent
+
+  /api/admin/config/bootstrap:
+    get:
+      tags: [Admin – Config]
+      summary: Get Bootstrap server configuration
+      responses:
+        "200":
+          description: Bootstrap config
+    put:
+      tags: [Admin – Config]
+      summary: Update Bootstrap server configuration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                enabled:
+                  type: boolean
+                serverUri:
+                  type: string
+                securityMode:
+                  type: string
+                  enum: [psk, nosec]
+                pskIdentity:
+                  type: string
+                pskKey:
+                  type: string
+                localCoapPort:
+                  type: integer
+                localCoapsPort:
+                  type: integer
+      responses:
+        "200":
+          description: Config saved
+
+  /api/admin/config/bootstrap/test:
+    post:
+      tags: [Admin – Config]
+      summary: Test Bootstrap server connectivity
+      responses:
+        "200":
+          description: Test result
+
+  /api/admin/config/lwm2m-objects:
+    get:
+      tags: [Admin – Config]
+      summary: Get custom LwM2M object definitions
+      responses:
+        "200":
+          description: Custom object definitions
+    put:
+      tags: [Admin – Config]
+      summary: Save custom LwM2M object definitions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [objects]
+              properties:
+                objects:
+                  type: array
+                  items:
+                    type: object
+      responses:
+        "200":
+          description: Saved
+
+  /api/admin/bootstrap/devices:
+    get:
+      tags: [Admin – Config]
+      summary: List registered bootstrap devices
+      responses:
+        "200":
+          description: Bootstrap devices
+    post:
+      tags: [Admin – Config]
+      summary: Register a bootstrap device (PSK credentials)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [endpoint, pskIdentity, pskKey]
+              properties:
+                endpoint:
+                  type: string
+                pskIdentity:
+                  type: string
+                pskKey:
+                  type: string
+                  description: Hex-encoded PSK key (min 16 hex chars / 8 bytes)
+      responses:
+        "200":
+          description: Device registered
+
+  /api/admin/bootstrap/devices/{endpoint}:
+    delete:
+      tags: [Admin – Config]
+      summary: Remove a bootstrap device
+      parameters:
+        - name: endpoint
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Removed
+
+  # ════════════════════════════════════════════════════════════════════
+  # Admin – OTA
+  # ════════════════════════════════════════════════════════════════════
+
+  /api/admin/ota/files:
+    get:
+      tags: [Admin – OTA]
+      summary: List all OTA files (sysadmin sees all tenants)
+      responses:
+        "200":
+          description: OTA files
+    post:
+      tags: [Admin – OTA]
+      summary: Upload a new OTA firmware file
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, version, deviceType]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                filename:
+                  type: string
+                version:
+                  type: string
+                deviceType:
+                  type: string
+                target:
+                  type: string
+                  default: default
+                variant:
+                  type: string
+                  default: stable
+      responses:
+        "200":
+          description: File uploaded
+
+  /api/admin/ota/files/{id}:
+    delete:
+      tags: [Admin – OTA]
+      summary: Delete an OTA file (sysadmin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+
+  /api/admin/device-profiles:
+    get:
+      tags: [Admin – OTA]
+      summary: List device profiles (sysadmin)
+      responses:
+        "200":
+          description: Profiles
+    post:
+      tags: [Admin – OTA]
+      summary: Create a device profile (sysadmin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeviceProfile"
+      responses:
+        "200":
+          description: Profile created
+
+  /api/admin/device-profiles/{id}:
+    get:
+      tags: [Admin – OTA]
+      summary: Get a device profile
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Profile
+    patch:
+      tags: [Admin – OTA]
+      summary: Update a device profile
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeviceProfile"
+      responses:
+        "200":
+          description: Updated
+    delete:
+      tags: [Admin – OTA]
+      summary: Delete a device profile
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+
+  /api/admin/device-profiles/{id}/deploy:
+    post:
+      tags: [Admin – OTA]
+      summary: Deploy profile to assigned devices
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deploy triggered
+
+  /api/admin/device-profiles/{id}/endpoints:
+    post:
+      tags: [Admin – OTA]
+      summary: Assign an endpoint to a device profile
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [endpoint]
+              properties:
+                endpoint:
+                  type: string
+      responses:
+        "200":
+          description: Endpoint assigned
+
+  /api/admin/device-profiles/{id}/endpoints/{endpoint}:
+    delete:
+      tags: [Admin – OTA]
+      summary: Remove an endpoint from a device profile
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: endpoint
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Removed
+
+  /api/admin/telemetry/stats:
+    get:
+      tags: [Admin – OTA]
+      summary: Get telemetry storage statistics
+      responses:
+        "200":
+          description: Stats
+
+  /api/admin/telemetry/cleanup:
+    post:
+      tags: [Admin – OTA]
+      summary: Trigger telemetry data cleanup (old data pruning)
+      responses:
+        "200":
+          description: Cleanup triggered
+
+  # ════════════════════════════════════════════════════════════════════
+  # Admin – Backups
+  # ════════════════════════════════════════════════════════════════════
+
+  /api/admin/backups:
+    get:
+      tags: [Admin – Backups]
+      summary: List backups
+      responses:
+        "200":
+          description: Backup list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Backup"
+    post:
+      tags: [Admin – Backups]
+      summary: Create a manual backup
+      responses:
+        "200":
+          description: Backup created
+
+  /api/admin/backups/upload:
+    post:
+      tags: [Admin – Backups]
+      summary: Upload a backup file
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: Backup uploaded
+
+  /api/admin/backups/{id}/restore:
+    post:
+      tags: [Admin – Backups]
+      summary: Restore from a backup
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Restore initiated
+
+  /api/admin/backups/{id}/download:
+    get:
+      tags: [Admin – Backups]
+      summary: Download a backup file
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Backup file
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+
+  /api/admin/backups/{id}/validate:
+    get:
+      tags: [Admin – Backups]
+      summary: Validate a backup (integrity check)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Validation result
+
+  /api/admin/backups/{id}:
+    delete:
+      tags: [Admin – Backups]
+      summary: Delete a backup
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+
+  /api/admin/backup/schedule:
+    get:
+      tags: [Admin – Backups]
+      summary: Get backup schedule configuration
+      responses:
+        "200":
+          description: Schedule config
+    post:
+      tags: [Admin – Backups]
+      summary: Save backup schedule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                enabled:
+                  type: boolean
+                scheduleType:
+                  type: string
+                  enum: [daily, weekly]
+                scheduleHour:
+                  type: integer
+                  minimum: 0
+                  maximum: 23
+                scheduleMinute:
+                  type: integer
+                  minimum: 0
+                  maximum: 59
+                scheduleDayOfWeek:
+                  type: string
+                  enum: [MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY]
+      responses:
+        "200":
+          description: Schedule saved
+
+  # ════════════════════════════════════════════════════════════════════
+  # Admin – System
+  # ════════════════════════════════════════════════════════════════════
+
+  /api/admin/system/metrics:
+    get:
+      tags: [Admin – System]
+      summary: Get system metrics (CPU, memory, JVM, DB pool)
+      responses:
+        "200":
+          description: System metrics
+
+  /api/admin/security/selfcheck:
+    get:
+      tags: [Admin – System]
+      summary: Run security self-check (OWASP-inspired checks)
+      responses:
+        "200":
+          description: Self-check result
+
+  /api/admin/audit:
+    get:
+      tags: [Admin – System]
+      summary: Query audit log
+      parameters:
+        - name: username
+          in: query
+          schema:
+            type: string
+        - name: action
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 200
+      responses:
+        "200":
+          description: Audit entries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AuditEntry"
+
+  /api/admin/logs:
+    get:
+      tags: [Admin – System]
+      summary: Get server log entries
+      parameters:
+        - name: level
+          in: query
+          schema:
+            type: string
+            enum: [DEBUG, INFO, WARN, ERROR]
+        - name: component
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 500
+      responses:
+        "200":
+          description: Log entries
+
+  /api/admin/events:
+    get:
+      tags: [Admin – System]
+      summary: Server-Sent Events stream (real-time device events)
+      description: |
+        SSE stream delivering real-time events. Token must be passed as a query parameter
+        because the `EventSource` API does not support custom headers.
+
+        **Event types:** `device-registered`, `device-unregistered`, `bootstrap-provisioned`,
+        `command-applied`, `config-updated`
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Bearer token (required because EventSource cannot set headers)
+      responses:
+        "200":
+          description: SSE stream
+          content:
+            text/event-stream:
+              schema:
+                type: string

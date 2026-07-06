@@ -215,6 +215,13 @@ config = {
                 "position": "left"
             },
             {
+                "id": "components",
+                "label": "🧩 Components",
+                "icon": "🧩",
+                "description": "Reusable ESP-IDF components and libraries",
+                "position": "left"
+            },
+            {
                 "id": "projects",
                 "label": "🎵 Projects",
                 "icon": "🎵",
@@ -307,7 +314,7 @@ create_default_config() {
 # DISPLAY_MODE: 
 #   - "toplevel" = Direkt in Navbar (eigenständiger Link)
 #   - "category" = In Kategorie-Dropdown
-# CATEGORY: drivers, projects, hardware, docs
+# CATEGORY: drivers, components, projects, hardware, docs
 
 # Top-Level (direkt sichtbar)
 wb-idf-core|https://github.com/WhirlingBits/wb-idf-core|Core Library|Core functionality and base components|drivers|toplevel|true
