@@ -21,7 +21,7 @@ Functions for I2C bus and device initialization.
 Initializes the I2C master bus.
 
 ```c
-esp_err_t wb_i2c_master_bus_init(i2c_port_num_t i2c_port, gpio_num_t i2c_scl, gpio_num_t i2c_sda)
+esp_err_t wb_i2c_master_bus_init(i2c_port_num_t i2c_port, gpio_num_t i2c_scl, gpio_num_t i2c_sda, i2c_master_bus_handle_t *out_bus)
 ```
 
 **Parameters:**
@@ -29,6 +29,7 @@ esp_err_t wb_i2c_master_bus_init(i2c_port_num_t i2c_port, gpio_num_t i2c_scl, gp
 - **i2c_port** (`i2c_port_num_t`): The I2C port number to initialize
 - **i2c_scl** (`gpio_num_t`): The GPIO number for the I2C SCL pin
 - **i2c_sda** (`gpio_num_t`): The GPIO number for the I2C SDA pin
+- **out_bus** (`i2c_master_bus_handle_t *`)
 
 **Returns:**
 
